@@ -6,27 +6,32 @@ import { LoginPage } from "../features/admin/LoginPage";
 import { DashboardPage } from "../features/admin/DashboardPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 
-export const router = createBrowserRouter([
+export const router = createBrowserRouter(
+  [
+    {
+      path: "/",
+      element: <PublicLayout />,
+      children: [
+        { index: true, element: <PublicApplicationForm /> },
+      ],
+    },
+    {
+      path: "/admin/login",
+      element: <LoginPage />,
+    },
+    {
+      path: "/admin",
+      element: (
+        <ProtectedRoute>
+          <AdminLayout />
+        </ProtectedRoute>
+      ),
+      children: [
+        { index: true, element: <DashboardPage /> },
+      ],
+    },
+  ],
   {
-    path: "/",
-    element: <PublicLayout />,
-    children: [
-      { index: true, element: <PublicApplicationForm /> },
-    ],
-  },
-  {
-    path: "/admin/login",
-    element: <LoginPage />,
-  },
-  {
-    path: "/admin",
-    element: (
-      <ProtectedRoute>
-        <AdminLayout />
-      </ProtectedRoute>
-    ),
-    children: [
-      { index: true, element: <DashboardPage /> },
-    ],
-  },
-]);
+    basename: "/aytam",
+  }
+);
