@@ -64,18 +64,22 @@ $$;
 -- 2. Atomic Transaction Function for updating user roles and overrides without wiping permissions.
 CREATE OR REPLACE FUNCTION public.update_user_roles_and_permissions_v1(
   target_user_id uuid,
-  role_ids uuid[],
+  role_ids text[],
   permission_overrides jsonb
 )
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
 DECLARE
   override_record record;
+  role_uuid_ids uuid[];
 BEGIN
+  -- Safely cast text array of IDs to uuid array
+  role_uuid_ids := role_ids::uuid[];
+
   -- A. Update User Roles
   DELETE FROM public.user_roles WHERE user_id = target_user_id;
-  IF array_length(role_ids, 1) > 0 THEN
+  IF array_length(role_uuid_ids, 1) > 0 THEN
     INSERT INTO public.user_roles (user_id, role_id)
-    SELECT target_user_id, unnest(role_ids);
+    SELECT target_user_id, unnest(role_uuid_ids);
   END IF;
 
   -- B. Update Permission Overrides
