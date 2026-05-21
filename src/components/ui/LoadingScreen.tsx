@@ -29,8 +29,10 @@ export function LoadingScreen({ onComplete }: LoadingScreenProps) {
     
     // Safety fallback: if anything fails, or video gets stuck, fade out after 12 seconds
     const fallbackTimer = window.setTimeout(() => {
-      console.log("Safety fallback triggered after 12 seconds.");
-      completeLoader();
+      if (!isCompletedRef.current) {
+        console.warn("Safety fallback triggered after 12 seconds. Video might have failed or got stuck.");
+        completeLoader();
+      }
     }, 12000);
     timersRef.current.push(fallbackTimer);
 
