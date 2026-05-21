@@ -73,7 +73,16 @@ BEGIN
     aud,
     role,
     created_at,
-    updated_at
+    updated_at,
+    confirmation_token,
+    email_change,
+    email_change_token_new,
+    recovery_token,
+    phone,
+    phone_change,
+    phone_change_token,
+    email_change_token_current,
+    reauthentication_token
   ) VALUES (
     new_user_id,
     '00000000-0000-0000-0000-000000000000',
@@ -85,7 +94,16 @@ BEGIN
     'authenticated',
     'authenticated',
     now(),
-    now()
+    now(),
+    '',
+    '',
+    '',
+    '',
+    NULL,
+    '',
+    '',
+    '',
+    ''
   );
 
   -- Also insert into admin_users to keep legacy session validation compatible
