@@ -48,6 +48,7 @@ export function DashboardPage() {
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [showAddForm, setShowAddForm] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -118,11 +119,20 @@ export function DashboardPage() {
 
   async function handleDeleteConfirm() {
     if (!confirmDeleteId) return;
-    await deleteOrphan(confirmDeleteId);
-    setConfirmDeleteId(null);
-    // If the currently edited record is deleted, clear selection
-    if (selected?.id === confirmDeleteId) {
-      setSelected(null);
+    try {
+      setIsDeleting(true);
+      await deleteOrphan(confirmDeleteId);
+      addToast("تم حذف سجل اليتيم بنجاح", "success");
+      setConfirmDeleteId(null);
+      // If the currently edited record is deleted, clear selection
+      if (selected?.id === confirmDeleteId) {
+        setSelected(null);
+      }
+    } catch (error) {
+      console.error(error);
+      addToast("حدث خطأ أثناء محاولة حذف السجل", "error");
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -181,25 +191,25 @@ export function DashboardPage() {
           <nav className="flex lg:flex-col flex-wrap gap-2 p-2 rounded-3xl border border-white/60 bg-white/40 backdrop-blur-xl">
             <button
               onClick={() => { setActiveTab("overview"); setSelected(null); }}
-              className={`flex items-center gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl w-full transition-all ${
+              className={`flex items-center justify-center lg:justify-start gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl flex-grow lg:w-full transition-all ${
                 activeTab === "overview"
                   ? "bg-slate-900 text-white shadow-md scale-[1.02]"
                   : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
               }`}
             >
-              <LayoutDashboard className="h-4 w-4" />
+              <LayoutDashboard className="h-4 w-4 shrink-0" />
               <span>الرئيسية</span>
             </button>
 
             <button
               onClick={() => setActiveTab("directory")}
-              className={`flex items-center gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl w-full transition-all ${
+              className={`flex items-center justify-center lg:justify-start gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl flex-grow lg:w-full transition-all ${
                 activeTab === "directory"
                   ? "bg-slate-900 text-white shadow-md scale-[1.02]"
                   : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
               }`}
             >
-              <Users className="h-4 w-4" />
+              <Users className="h-4 w-4 shrink-0" />
               <span>الأيتام</span>
               {records.length > 0 && (
                 <span className={`mr-auto px-2 py-0.5 rounded-full text-[10px] ${
@@ -212,37 +222,37 @@ export function DashboardPage() {
 
             <button
               onClick={() => { setActiveTab("applications"); setSelected(null); }}
-              className={`flex items-center gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl w-full transition-all ${
+              className={`flex items-center justify-center lg:justify-start gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl flex-grow lg:w-full transition-all ${
                 activeTab === "applications"
                   ? "bg-slate-900 text-white shadow-md scale-[1.02]"
                   : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
               }`}
             >
-              <FolderClock className="h-4 w-4" />
+              <FolderClock className="h-4 w-4 shrink-0" />
               <span>الطلبات الجديدة</span>
             </button>
 
             <button
               onClick={() => { setActiveTab("import"); setSelected(null); }}
-              className={`flex items-center gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl w-full transition-all ${
+              className={`flex items-center justify-center lg:justify-start gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl flex-grow lg:w-full transition-all ${
                 activeTab === "import"
                   ? "bg-slate-900 text-white shadow-md scale-[1.02]"
                   : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
               }`}
             >
-              <FileSpreadsheet className="h-4 w-4" />
+              <FileSpreadsheet className="h-4 w-4 shrink-0" />
               <span>استيراد ملف</span>
             </button>
 
             <button
               onClick={() => { setActiveTab("users"); setSelected(null); }}
-              className={`flex items-center gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl w-full transition-all ${
+              className={`flex items-center justify-center lg:justify-start gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl flex-grow lg:w-full transition-all ${
                 activeTab === "users"
                   ? "bg-slate-900 text-white shadow-md scale-[1.02]"
                   : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
               }`}
             >
-              <UserCog className="h-4 w-4" />
+              <UserCog className="h-4 w-4 shrink-0" />
               <span>المستخدمين</span>
             </button>
           </nav>
@@ -459,8 +469,9 @@ export function DashboardPage() {
         confirmText="نعم، حذف السجل نهائياً"
         cancelText="تراجع وإلغاء"
         tone="danger"
+        isSubmitting={isDeleting}
         onConfirm={handleDeleteConfirm}
-        onCancel={() => setConfirmDeleteId(null)}
+        onCancel={() => !isDeleting && setConfirmDeleteId(null)}
       />
     </div>
   );

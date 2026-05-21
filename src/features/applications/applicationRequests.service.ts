@@ -1,5 +1,6 @@
 import { supabase } from "../../lib/supabase";
 import type { OrphanRecord, UploadedDocument } from "../../types/orphan.types";
+import { logActivity } from "../audit/activityLog.service";
 
 const APPLICATIONS_TABLE = "orphan_applications";
 const ORPHANS_TABLE = "orphans";
@@ -134,18 +135,14 @@ export function subscribeToPendingApplications(callback: (records: OrphanRecord[
 export async function approveApplication(application: OrphanRecord) {
   if (!application.id) throw new Error("Application ID is missing.");
 
-  const { error: insertError } = await supabase
-    .from(ORPHANS_TABLE)
-    .insert(toDbOrphan(application));
+  const { error } = await supabase.rpc("approve_orphan_application_v1", {
+    app_id: application.id,
+    orphan_data: toDbOrphan(application)
+  });
 
-  if (insertError) throw insertError;
+  if (error) throw error;
 
-  const { error: updateError } = await supabase
-    .from(APPLICATIONS_TABLE)
-    .update({ file_status: "مقبول", updated_at: new Date().toISOString() })
-    .eq("id", application.id);
-
-  if (updateError) throw updateError;
+  await logActivity("APPROVE_APPLICATION", "orphan_applications", application.id, { childName: application.childFullName });
 }
 
 export async function rejectApplication(applicationId: string) {
@@ -155,6 +152,8 @@ export async function rejectApplication(applicationId: string) {
     .eq("id", applicationId);
 
   if (error) throw error;
+
+  await logActivity("REJECT_APPLICATION", "orphan_applications", applicationId);
 }
 
 export async function createSignedDocumentUrl(path: string) {

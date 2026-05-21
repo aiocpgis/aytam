@@ -1,5 +1,5 @@
 import { FormEvent, useState } from "react";
-import { LockKeyhole, ShieldCheck, Eye, EyeOff } from "lucide-react";
+import { LockKeyhole, ShieldCheck, Eye, EyeOff, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 
@@ -53,6 +53,18 @@ export function LoginPage() {
 
   return (
     <main className="relative grid min-h-screen place-items-center px-4 py-10 overflow-hidden">
+      {/* Premium Glassmorphic Back Button */}
+      <button
+        type="button"
+        onClick={() => navigate("/")}
+        className="absolute top-6 right-6 md:top-8 md:right-8 z-30 flex items-center gap-2.5 rounded-2xl border border-white/70 dark:border-slate-700/50 bg-white/50 dark:bg-slate-900/50 backdrop-blur-xl px-5 py-2.5 text-xs md:text-sm font-bold text-slate-800 dark:text-slate-200 shadow-glass hover:shadow-[0_8px_30px_rgb(0,0,0,0.06),0_0_20px_rgba(59,130,246,0.15)] dark:hover:shadow-[0_8px_30px_rgb(0,0,0,0.3),0_0_25px_rgba(59,130,246,0.15)] outline-none hover:bg-white/70 dark:hover:bg-slate-900/70 hover:border-blue-400/50 dark:hover:border-blue-500/30 hover:scale-[1.03] active:scale-95 transition-all duration-300 group"
+      >
+        <ArrowRight className="h-4 w-4 text-blue-600 dark:text-blue-400 group-hover:translate-x-1 transition-transform duration-300" />
+        <span className="font-extrabold bg-gradient-to-l from-slate-950 via-blue-900 to-blue-700 dark:from-white dark:via-blue-100 dark:to-blue-300 bg-clip-text text-transparent">
+          الرجوع للرئيسية
+        </span>
+      </button>
+
       {/* Decorative background elements */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute top-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-200/20 blur-3xl" />
@@ -71,10 +83,10 @@ export function LoginPage() {
             <div className="absolute inset-0 mx-auto h-20 w-20 rounded-3xl bg-slate-900/20 animate-ping" style={{ animationDuration: '3s' }} />
           </div>
           <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
-            مركز القيادة
+            منصة رفق
           </h1>
           <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 font-bold">
-            منصة رِفْق — بوابة المشرفين والمديرين
+            بوابة دخول المشرفين والمدراء
           </p>
         </div>
 

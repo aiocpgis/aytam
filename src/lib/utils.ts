@@ -28,13 +28,24 @@ export function calculateAge(birthDate?: string) {
   return age;
 }
 
-export function toDateInputValue(value: unknown) {
+export function toDateInputValue(value: unknown): string {
   if (!value) return "";
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
     return value.toISOString().slice(0, 10);
   }
   const text = String(value).trim();
+  
+  // مطابقة صيغ DD/MM/YYYY أو DD-MM-YYYY
+  const dmyRegex = /^(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})$/;
+  const match = text.match(dmyRegex);
+  if (match) {
+    const [_, day, month, year] = match;
+    const paddedDay = day.padStart(2, "0");
+    const paddedMonth = month.padStart(2, "0");
+    return `${year}-${paddedMonth}-${paddedDay}`;
+  }
+
   const parsed = new Date(text);
   if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10);
-  return text;
+  return ""; // لا نرجع النص التالف لتفادي تعطل الخادم
 }

@@ -89,7 +89,11 @@ export function ExcelImportPanel() {
       {summary && <ImportResult summary={summary} />}
 
       <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-        <a className="secondary-btn" href="/templates/orphans_cleaned_template.xlsx" download>
+        <a 
+          className="secondary-btn" 
+          href={`${import.meta.env.BASE_URL.replace(/\/$/, "")}/templates/orphans_cleaned_template.xlsx`} 
+          download
+        >
           <Download className="h-4 w-4" />
           تحميل القالب المنظف
         </a>

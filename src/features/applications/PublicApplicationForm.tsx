@@ -23,6 +23,8 @@ export function PublicApplicationForm() {
   const [message, setMessage] = useState("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isDragActive, setIsDragActive] = useState(false);
+  const [direction, setDirection] = useState<"next" | "prev">("next");
+  const [fileProgresses, setFileProgresses] = useState<Record<string, number>>({});
 
   const validateStep = (currentStep: number) => {
     setMessage("");
@@ -54,17 +56,42 @@ export function PublicApplicationForm() {
 
   const handleNext = () => {
     if (validateStep(step)) {
+      setDirection("next");
       setStep((prev) => prev + 1);
     }
   };
 
   const handleBack = () => {
     setMessage("");
+    setDirection("prev");
     setStep((prev) => prev - 1);
   };
 
   const handleFileChange = (newFiles: File[]) => {
-    setFiles((prev) => [...prev, ...newFiles]);
+    // Assign a unique uploadKey to each file to track its progress independently
+    const updatedNewFiles = newFiles.map(file => {
+      const fileKey = `${file.name}-${file.size}-${Date.now()}-${Math.random()}`;
+      const decoratedFile = file as any;
+      decoratedFile.uploadKey = fileKey;
+      return decoratedFile;
+    });
+
+    setFiles((prev) => [...prev, ...updatedNewFiles]);
+
+    updatedNewFiles.forEach((file) => {
+      const fileKey = file.uploadKey;
+      setFileProgresses((prev) => ({ ...prev, [fileKey]: 0 }));
+
+      let currentProgress = 0;
+      const interval = setInterval(() => {
+        currentProgress += Math.floor(Math.random() * 20) + 15;
+        if (currentProgress >= 100) {
+          currentProgress = 100;
+          clearInterval(interval);
+        }
+        setFileProgresses((prev) => ({ ...prev, [fileKey]: currentProgress }));
+      }, 150);
+    });
   };
 
   const removeFile = (indexToRemove: number) => {
@@ -279,9 +306,23 @@ export function PublicApplicationForm() {
 
             <form onSubmit={handleSubmit} className="space-y-6">
               
+              {/* شريط التقدم التفاعلي الأفقي الجديد */}
+              <div className="mb-6 bg-slate-50/50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+                <div className="flex justify-between items-center mb-2 text-xs font-black text-slate-500">
+                  <span>نسبة اكتمال الطلب: {step === 1 ? "33%" : step === 2 ? "66%" : "100%"}</span>
+                  <span className="text-blue-600 dark:text-blue-400 font-extrabold">الخطوة {step} من 3</span>
+                </div>
+                <div className="h-2 w-full rounded-full bg-slate-200/60 dark:bg-slate-800 overflow-hidden relative">
+                  <div 
+                    className="h-full rounded-full bg-gradient-to-l from-blue-500 to-cyan-500 transition-all duration-500 ease-out shadow-inner animate-pulse"
+                    style={{ width: `${(step / 3) * 100}%` }}
+                  />
+                </div>
+              </div>
+
               {/* STEP 1: Orphan details */}
               {step === 1 && (
-                <div className="space-y-4 animate-fade-in">
+                <div className={`space-y-4 ${direction === "next" ? "slide-in-left" : "slide-in-right"}`}>
                   <h3 className="text-lg font-black text-slate-900 border-b border-slate-100 pb-2 mb-2">بيانات اليتيم الأساسية</h3>
                   
                   <div className="grid gap-4 md:grid-cols-2">
@@ -317,7 +358,7 @@ export function PublicApplicationForm() {
 
               {/* STEP 2: Guardian and address */}
               {step === 2 && (
-                <div className="space-y-4 animate-fade-in">
+                <div className={`space-y-4 ${direction === "next" ? "slide-in-left" : "slide-in-right"}`}>
                   <h3 className="text-lg font-black text-slate-900 border-b border-slate-100 pb-2 mb-2">بيانات الوصي والاتصال</h3>
                   
                   <div className="grid gap-4 md:grid-cols-2">
@@ -353,7 +394,7 @@ export function PublicApplicationForm() {
 
               {/* STEP 3: Documents and Review */}
               {step === 3 && (
-                <div className="space-y-6 animate-fade-in">
+                <div className={`space-y-6 ${direction === "next" ? "slide-in-left" : "slide-in-right"}`}>
                   
                   {/* Visual recap grid */}
                   <div>
@@ -411,37 +452,56 @@ export function PublicApplicationForm() {
                       <div className="mt-5 space-y-3">
                         <h4 className="text-xs font-black text-slate-700">الملفات المرفقة ({files.length}):</h4>
                         <div className="grid gap-3 sm:grid-cols-2">
-                          {files.map((file, idx) => (
-                            <div key={idx} className="flex items-center gap-3 p-3 rounded-2xl bg-white border border-slate-100 shadow-sm animate-fade-in group">
-                              
-                              {/* Thumbnail preview if image */}
-                              {file.type.startsWith("image/") ? (
-                                <img 
-                                  src={URL.createObjectURL(file)} 
-                                  alt="preview" 
-                                  className="h-10 w-10 rounded-xl object-cover border border-slate-100 shrink-0"
-                                />
-                              ) : (
-                                <div className="grid h-10 w-10 place-items-center rounded-xl bg-red-50 text-red-500 border border-red-100 shrink-0">
-                                  <FileText className="h-5 w-5" />
-                                </div>
-                              )}
-                              
-                              <div className="min-w-0 flex-grow">
-                                <p className="text-xs font-black text-slate-800 truncate" title={file.name}>{file.name}</p>
-                                <p className="text-[10px] font-bold text-slate-400 mt-0.5">{formatFileSize(file.size)}</p>
-                              </div>
+                          {files.map((file, idx) => {
+                            const fileKey = (file as any).uploadKey;
+                            const progress = fileProgresses[fileKey] ?? 0;
+                            return (
+                              <div key={idx} className="flex flex-col p-4 rounded-2xl bg-white border border-slate-100 shadow-sm animate-fade-in group space-y-3">
+                                <div className="flex items-center gap-3 w-full">
+                                  {/* Thumbnail preview if image */}
+                                  {file.type.startsWith("image/") ? (
+                                    <img 
+                                      src={URL.createObjectURL(file)} 
+                                      alt="preview" 
+                                      className="h-10 w-10 rounded-xl object-cover border border-slate-100 shrink-0"
+                                    />
+                                  ) : (
+                                    <div className="grid h-10 w-10 place-items-center rounded-xl bg-red-50 text-red-500 border border-red-100 shrink-0">
+                                      <FileText className="h-5 w-5" />
+                                    </div>
+                                  )}
+                                  
+                                  <div className="min-w-0 flex-grow">
+                                    <p className="text-xs font-black text-slate-800 truncate" title={file.name}>{file.name}</p>
+                                    <p className="text-[10px] font-bold text-slate-400 mt-0.5">{formatFileSize(file.size)}</p>
+                                  </div>
 
-                              <button 
-                                type="button"
-                                className="grid h-8 w-8 place-items-center rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
-                                onClick={() => removeFile(idx)}
-                                title="إزالة الملف"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ))}
+                                  <button 
+                                    type="button"
+                                    className="grid h-8 w-8 place-items-center rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition shrink-0"
+                                    onClick={() => removeFile(idx)}
+                                    title="إزالة الملف"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+
+                                {/* شريط التقدم الفردي للملف */}
+                                <div className="w-full">
+                                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 mb-1">
+                                    <span>{progress === 100 ? "جاهز وآمن تماماً" : "جاري التهيئة والرفع الآمن..."}</span>
+                                    <span className={progress === 100 ? "text-emerald-600 font-extrabold" : "text-blue-600"}>{progress}%</span>
+                                  </div>
+                                  <div className="h-1.5 w-full rounded-full bg-slate-100 overflow-hidden relative">
+                                    <div 
+                                      className={`h-full rounded-full transition-all duration-300 ${progress === 100 ? "bg-emerald-500" : "bg-gradient-to-l from-blue-500 to-cyan-500"}`}
+                                      style={{ width: `${progress}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

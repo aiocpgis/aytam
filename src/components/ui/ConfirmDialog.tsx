@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle, HelpCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle, HelpCircle, Loader2 } from "lucide-react";
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -9,6 +9,7 @@ interface ConfirmDialogProps {
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
   tone?: "danger" | "success" | "warning" | "info";
+  isSubmitting?: boolean;
 }
 
 export function ConfirmDialog({
@@ -20,6 +21,7 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
   tone = "danger",
+  isSubmitting = false,
 }: ConfirmDialogProps) {
   if (!isOpen) return null;
 
@@ -53,7 +55,7 @@ export function ConfirmDialog({
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-slate-900/50 backdrop-blur-xl transition-opacity duration-300"
-        onClick={onCancel}
+        onClick={isSubmitting ? undefined : onCancel}
       />
 
       {/* Card */}
@@ -72,16 +74,19 @@ export function ConfirmDialog({
         <div className="mt-6 flex justify-end gap-3">
           <button
             type="button"
-            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-extrabold text-slate-600 transition hover:bg-slate-50"
+            disabled={isSubmitting}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-extrabold text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={onCancel}
           >
             {cancelText}
           </button>
           <button
             type="button"
-            className={`inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-2.5 text-xs font-extrabold text-white shadow-md transition hover:-translate-y-0.5 ${currentTone.btn}`}
+            disabled={isSubmitting}
+            className={`inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-2.5 text-xs font-extrabold text-white shadow-md transition hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 ${currentTone.btn}`}
             onClick={onConfirm}
           >
+            {isSubmitting && <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />}
             {confirmText}
           </button>
         </div>

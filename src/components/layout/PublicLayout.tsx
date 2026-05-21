@@ -6,27 +6,27 @@ export function PublicLayout() {
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-white to-emerald-50/20">
       {/* Sticky Premium Header */}
       <header className="sticky top-0 z-40 w-full border-b border-white/40 bg-white/60 backdrop-blur-xl transition-all">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6">
-          <Link to="/" className="flex items-center gap-3 text-slate-900 group">
-            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-gradient-to-l from-emerald-600 to-teal-500 text-white shadow-soft transition-all duration-300 group-hover:scale-105 group-hover:rotate-3">
-              <ShieldCheck className="h-6 w-6" />
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-3 sm:px-6 sm:py-4">
+          <Link to="/" className="flex items-center gap-2 sm:gap-3 text-slate-900 group">
+            <span className="grid h-9 w-9 sm:h-11 sm:w-11 shrink-0 place-items-center rounded-xl sm:rounded-2xl bg-gradient-to-l from-emerald-600 to-teal-500 text-white shadow-soft transition-all duration-300 group-hover:scale-105 group-hover:rotate-3">
+              <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6" />
             </span>
             <span>
-              <strong className="block text-lg font-black bg-gradient-to-l from-slate-900 to-slate-700 bg-clip-text text-transparent">
+              <strong className="block text-sm sm:text-lg font-black bg-gradient-to-l from-slate-900 to-slate-700 bg-clip-text text-transparent">
                 منصة رِفْق لرعاية الأيتام
               </strong>
-              <small className="text-[10px] font-extrabold tracking-wider text-slate-500 block -mt-1 uppercase">
+              <small className="text-[8px] sm:text-[10px] font-extrabold tracking-wider text-slate-500 block -mt-0.5 sm:-mt-1 uppercase">
                 البوابة الإنسانية لتسجيل ورعاية الأيتام
               </small>
             </span>
           </Link>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <Link 
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-5 py-2.5 text-sm font-extrabold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 hover:text-slate-950 active:scale-95" 
+              className="inline-flex items-center justify-center gap-1.5 sm:gap-2 rounded-xl sm:rounded-2xl border border-slate-200 bg-white/80 px-3 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm font-extrabold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300 hover:text-slate-950 active:scale-95" 
               to="/admin/login"
             >
-              <LogIn className="h-4 w-4 text-emerald-600" />
+              <LogIn className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-600" />
               بوابة الإشراف
             </Link>
           </div>

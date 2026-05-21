@@ -5,12 +5,17 @@ import { PublicApplicationForm } from "../features/applications/PublicApplicatio
 import { LoginPage } from "../features/admin/LoginPage";
 import { DashboardPage } from "../features/admin/DashboardPage";
 import { ProtectedRoute } from "./ProtectedRoute";
+import { MaintenanceGuard } from "../components/security/MaintenanceGuard";
 
 export const router = createBrowserRouter(
   [
     {
       path: "/",
-      element: <PublicLayout />,
+      element: (
+        <MaintenanceGuard>
+          <PublicLayout />
+        </MaintenanceGuard>
+      ),
       children: [
         { index: true, element: <PublicApplicationForm /> },
       ],
@@ -23,7 +28,9 @@ export const router = createBrowserRouter(
       path: "/admin",
       element: (
         <ProtectedRoute>
-          <AdminLayout />
+          <MaintenanceGuard>
+            <AdminLayout />
+          </MaintenanceGuard>
         </ProtectedRoute>
       ),
       children: [

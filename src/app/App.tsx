@@ -8,19 +8,16 @@ import { ToastProvider } from "../components/ui/ToastProvider";
 import { SecurityRestrictions } from "../components/security/SecurityRestrictions";
 
 export default function App() {
-  const [showLoader, setShowLoader] = useState(true);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setShowLoader(false), 1300);
-    return () => window.clearTimeout(timer);
-  }, []);
+  // Bypass the 3.5s cinematic intro video if the user is visiting an administrative path (starting with /admin)
+  const isAdminPath = window.location.pathname.includes("/admin");
+  const [showLoader, setShowLoader] = useState(!isAdminPath);
 
   return (
     <ThemeProvider defaultTheme="light" storageKey="orphan-care-theme">
       <ToastProvider>
         <PermissionsProvider>
           <SecurityRestrictions />
-          {showLoader && <LoadingScreen />}
+          {showLoader && <LoadingScreen onComplete={() => setShowLoader(false)} />}
           <RouterProvider router={router} />
         </PermissionsProvider>
       </ToastProvider>
