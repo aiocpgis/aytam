@@ -28,10 +28,11 @@ create table if not exists public.orphans (
   documents_status text not null default '',
   governorate_city text not null default '',
   gender text not null default 'غير محدد' check (gender in ('ذكر', 'أنثى', 'غير محدد')),
-  sponsorship_status text not null default 'بانتظار كافل' check (sponsorship_status in ('بانتظار كافل', 'مكفول', 'متوقف')),
+  sponsorship_status text not null default 'غير مكفول' check (sponsorship_status in ('غير مكفول', 'بانتظار كافل', 'مكفول', 'متوقف')),
   file_status text not null default 'جديد' check (file_status in ('جديد', 'جديد بانتظار المراجعة', 'قيد المراجعة', 'مقبول', 'مرفوض', 'مكتمل')),
   currency text not null default 'غير محدد' check (currency in ('شيكل', 'دولار', 'دينار', 'غير محدد')),
   documents jsonb not null default '[]'::jsonb,
+  notes text not null default '',
   source text not null default 'admin_form' check (source in ('public_form', 'admin_form', 'excel_import')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -54,10 +55,11 @@ create table if not exists public.orphan_applications (
   documents_status text not null default '',
   governorate_city text not null default '',
   gender text not null default 'غير محدد' check (gender in ('ذكر', 'أنثى', 'غير محدد')),
-  sponsorship_status text not null default 'بانتظار كافل' check (sponsorship_status in ('بانتظار كافل', 'مكفول', 'متوقف')),
+  sponsorship_status text not null default 'غير مكفول' check (sponsorship_status in ('غير مكفول', 'بانتظار كافل', 'مكفول', 'متوقف')),
   file_status text not null default 'جديد بانتظار المراجعة' check (file_status in ('جديد', 'جديد بانتظار المراجعة', 'قيد المراجعة', 'مقبول', 'مرفوض', 'مكتمل')),
   currency text not null default 'غير محدد' check (currency in ('شيكل', 'دولار', 'دينار', 'غير محدد')),
   documents jsonb not null default '[]'::jsonb,
+  notes text not null default '',
   source text not null default 'public_form' check (source in ('public_form', 'admin_form', 'excel_import')),
   storage_folder_id text,
   created_at timestamptz not null default now(),
@@ -154,7 +156,7 @@ for delete
 to authenticated
 using (public.is_admin());
 
--- Public applications: anonymous visitors may submit only new applications.
+-- Public applications: anonymous visitors may submit only validated public applications.
 create policy "orphan_applications_public_insert"
 on public.orphan_applications
 for insert
@@ -162,11 +164,18 @@ to anon, authenticated
 with check (
   source = 'public_form'
   and file_status = 'جديد بانتظار المراجعة'
-  and sponsorship_status = 'بانتظار كافل'
+  and sponsorship_status in ('غير مكفول', 'مكفول')
   and child_full_name is not null
   and length(trim(child_full_name)) >= 3
   and guardian_phone is not null
   and length(trim(guardian_phone)) >= 7
+  and transfer_account_name in ('بنك فلسطين', 'بال باي', 'جوال باي')
+  and transfer_account_number is not null
+  and length(trim(transfer_account_number)) >= 7
+  and (
+    sponsorship_status = 'غير مكفول'
+    or length(trim(coalesce(sponsor_name, ''))) >= 3
+  )
 );
 
 create policy "orphan_applications_admin_select"
