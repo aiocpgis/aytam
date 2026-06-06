@@ -13,10 +13,11 @@ type ChartData = {
 };
 
 const COLORS = {
-  "مكفول": "#10B981", // Emerald
-  "بانتظار كافل": "#F59E0B", // Warm/Amber
-  "متوقف": "#EF4444", // Red
-  "غير محدد": "#64748B", // Slate
+  "مكفول": "#10B981",
+  "غير مكفول": "#F59E0B",
+  "بانتظار كافل": "#F59E0B",
+  "متوقف": "#EF4444",
+  "غير محدد": "#64748B",
 };
 
 export function SponsorshipDonutChart({ data }: { data: ChartData[] }) {
@@ -42,18 +43,18 @@ export function SponsorshipDonutChart({ data }: { data: ChartData[] }) {
             dataKey="value"
           >
             {data.map((entry, index) => (
-              <Cell 
-                key={`cell-${index}`} 
-                fill={COLORS[entry.name as keyof typeof COLORS] || COLORS["غير محدد"]} 
+              <Cell
+                key={`cell-${index}`}
+                fill={COLORS[entry.name as keyof typeof COLORS] || COLORS["غير محدد"]}
               />
             ))}
           </Pie>
-          <Tooltip 
+          <Tooltip
             formatter={(value) => [value, "العدد"]}
-            contentStyle={{ 
-              borderRadius: '12px', 
-              border: 'none',
-              boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+            contentStyle={{
+              borderRadius: "12px",
+              border: "none",
+              boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
             }}
           />
           <Legend verticalAlign="bottom" height={36} iconType="circle" />
