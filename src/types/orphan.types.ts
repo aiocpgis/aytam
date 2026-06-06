@@ -2,7 +2,7 @@ export type Gender = "ذكر" | "أنثى" | "غير محدد";
 
 export type OrphanType = "يتيم الأب" | "يتيم الأم" | "يتيم الأبوين" | "غير محدد";
 
-export type SponsorshipStatus = "بانتظار كافل" | "مكفول" | "متوقف";
+export type SponsorshipStatus = "غير مكفول" | "بانتظار كافل" | "مكفول" | "متوقف";
 
 export type FileStatus = "جديد" | "جديد بانتظار المراجعة" | "قيد المراجعة" | "مقبول" | "مرفوض" | "مكتمل";
 
@@ -39,6 +39,7 @@ export interface OrphanRecord {
   currency: Currency;
   documents: UploadedDocument[];
   source: "public_form" | "admin_form" | "excel_import";
+  notes?: string;
   photo_path?: string | null;
   photo_uploaded_at?: string | null;
   createdAt?: unknown;
