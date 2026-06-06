@@ -25,6 +25,7 @@ type DbOrphanRecord = {
   file_status?: string;
   currency?: string;
   documents?: OrphanRecord["documents"];
+  notes?: string;
   source?: OrphanRecord["source"];
   created_at?: string;
   updated_at?: string;
@@ -48,10 +49,11 @@ function fromDbRecord(record: DbOrphanRecord): OrphanRecord {
     documentsStatus: record.documents_status ?? "",
     governorateCity: record.governorate_city ?? "",
     gender: (record.gender ?? "غير محدد") as OrphanRecord["gender"],
-    sponsorshipStatus: (record.sponsorship_status ?? "بانتظار كافل") as OrphanRecord["sponsorshipStatus"],
+    sponsorshipStatus: (record.sponsorship_status ?? "غير مكفول") as OrphanRecord["sponsorshipStatus"],
     fileStatus: (record.file_status ?? "جديد") as OrphanRecord["fileStatus"],
     currency: (record.currency ?? "غير محدد") as OrphanRecord["currency"],
     documents: record.documents ?? [],
+    notes: record.notes ?? "",
     source: record.source ?? "admin_form",
     createdAt: record.created_at,
     updatedAt: record.updated_at,
@@ -80,6 +82,7 @@ function toDbRecord(record: Partial<Omit<OrphanRecord, "id" | "createdAt" | "upd
   if (record.fileStatus !== undefined) dbRecord.file_status = record.fileStatus;
   if (record.currency !== undefined) dbRecord.currency = record.currency;
   if (record.documents !== undefined) dbRecord.documents = record.documents;
+  if (record.notes !== undefined) dbRecord.notes = record.notes;
   if (record.source !== undefined) dbRecord.source = record.source;
 
   return dbRecord;
