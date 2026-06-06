@@ -42,7 +42,6 @@ export function QuranVersePopup() {
   const [isExiting, setIsExiting] = useState(false);
 
   useEffect(() => {
-    // Show first verse after 3 seconds
     const initialTimer = setTimeout(() => {
       setCurrentIndex(Math.floor(Math.random() * quranicVerses.length));
       setIsVisible(true);
@@ -54,7 +53,6 @@ export function QuranVersePopup() {
   useEffect(() => {
     if (!isVisible) return;
 
-    // Auto-hide after 8 seconds
     const hideTimer = setTimeout(() => {
       handleClose();
     }, 8000);
@@ -62,7 +60,6 @@ export function QuranVersePopup() {
     return () => clearTimeout(hideTimer);
   }, [isVisible, currentIndex]);
 
-  // Show a new verse every 25 seconds
   useEffect(() => {
     const interval = setInterval(() => {
       const nextIndex = (currentIndex + 1) % quranicVerses.length;
@@ -95,7 +92,6 @@ export function QuranVersePopup() {
       }`}
     >
       <div className="relative rounded-3xl border border-white/60 bg-white/70 dark:bg-slate-900/70 backdrop-blur-2xl shadow-2xl p-6 overflow-hidden">
-        {/* Decorative glow */}
         <div className="absolute -top-10 -right-10 w-32 h-32 bg-amber-200/30 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-10 -left-10 w-28 h-28 bg-emerald-200/20 rounded-full blur-3xl pointer-events-none" />
 
