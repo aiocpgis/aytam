@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { X, BookOpen } from "lucide-react";
 
 const quranicVerses = [
@@ -37,13 +38,14 @@ const quranicVerses = [
 ];
 
 type QuranVersePopupProps = {
-  placement?: "floating" | "inline";
+  placement?: "auto" | "floating" | "inline";
 };
 
-export function QuranVersePopup({ placement = "floating" }: QuranVersePopupProps) {
+export function QuranVersePopup({ placement = "auto" }: QuranVersePopupProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
+  const [inlineTarget, setInlineTarget] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     const initialTimer = setTimeout(() => {
@@ -74,6 +76,62 @@ export function QuranVersePopup({ placement = "floating" }: QuranVersePopupProps
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (placement === "floating") {
+      setInlineTarget(null);
+      return;
+    }
+
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    let createdSlot: HTMLElement | null = null;
+
+    function removeCreatedSlot() {
+      if (createdSlot?.parentElement) {
+        createdSlot.parentElement.removeChild(createdSlot);
+      }
+      createdSlot = null;
+    }
+
+    function syncInlineTarget() {
+      const shouldUseInlineSlot = placement === "inline" || mediaQuery.matches;
+
+      if (!shouldUseInlineSlot) {
+        setInlineTarget(null);
+        removeCreatedSlot();
+        return;
+      }
+
+      const formSection = document.querySelector("section.max-w-5xl");
+      const introBlock = formSection?.firstElementChild;
+
+      if (!formSection || !introBlock) {
+        setInlineTarget(null);
+        return;
+      }
+
+      const existingSlot = document.getElementById("quran-verse-inline-slot") as HTMLElement | null;
+      const slot = existingSlot ?? document.createElement("div");
+
+      if (!existingSlot) {
+        slot.id = "quran-verse-inline-slot";
+        slot.className = "mx-auto mb-6 min-h-[108px] w-full max-w-3xl md:mb-0 md:min-h-0";
+        introBlock.insertAdjacentElement("afterend", slot);
+        createdSlot = slot;
+      }
+
+      setInlineTarget(slot);
+    }
+
+    syncInlineTarget();
+    mediaQuery.addEventListener("change", syncInlineTarget);
+
+    return () => {
+      mediaQuery.removeEventListener("change", syncInlineTarget);
+      setInlineTarget(null);
+      removeCreatedSlot();
+    };
+  }, [placement]);
+
   function handleClose() {
     setIsExiting(true);
     setTimeout(() => {
@@ -82,12 +140,14 @@ export function QuranVersePopup({ placement = "floating" }: QuranVersePopupProps
     }, 400);
   }
 
-  if (!isVisible && placement === "floating") return null;
+  const isInline = placement === "inline" || Boolean(inlineTarget);
+
+  if (!isVisible && !isInline) return null;
 
   const current = quranicVerses[currentIndex];
   const animationClasses = isExiting || !isVisible ? "opacity-0 translate-y-3 scale-95" : "opacity-100 translate-y-0 scale-100";
-  const positionClasses = placement === "inline"
-    ? "relative z-10 mx-auto w-full max-w-3xl md:fixed md:bottom-6 md:left-1/2 md:z-50 md:w-[90vw] md:max-w-lg md:-translate-x-1/2"
+  const positionClasses = isInline
+    ? "relative z-10 mx-auto w-full max-w-3xl"
     : "fixed bottom-6 left-1/2 z-50 w-[90vw] max-w-lg -translate-x-1/2";
 
   const popup = isVisible ? (
@@ -122,9 +182,7 @@ export function QuranVersePopup({ placement = "floating" }: QuranVersePopupProps
     </div>
   ) : null;
 
-  if (placement === "inline") {
-    return <div className="mx-auto mb-6 min-h-[108px] w-full max-w-3xl md:mb-0 md:min-h-0">{popup}</div>;
-  }
+  if (inlineTarget) return createPortal(popup, inlineTarget);
 
   return popup;
 }
