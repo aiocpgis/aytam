@@ -4,6 +4,11 @@ import type { OrphanRecord, UploadedDocument } from "../../types/orphan.types";
 const APPLICATIONS_TABLE = "orphan_applications";
 const DOCUMENTS_BUCKET = "orphan-documents";
 
+type PublicApplicationRecord = Omit<
+  OrphanRecord,
+  "id" | "createdAt" | "updatedAt" | "source" | "documents" | "fileStatus"
+>;
+
 function getSafeFileName(fileName: string) {
   const extension = fileName.includes(".") ? fileName.split(".").pop() : "file";
   const base = fileName
@@ -16,8 +21,8 @@ function getSafeFileName(fileName: string) {
 }
 
 export async function uploadPublicDocuments(
-  files: File[], 
-  folderId: string, 
+  files: File[],
+  folderId: string,
   onProgress?: (progress: number) => void
 ): Promise<UploadedDocument[]> {
   const uploaded: UploadedDocument[] = [];
@@ -55,35 +60,36 @@ export async function uploadPublicDocuments(
 }
 
 export async function createPublicApplication(
-  record: Omit<OrphanRecord, "id" | "createdAt" | "updatedAt" | "source" | "documents" | "fileStatus" | "sponsorshipStatus">,
+  record: PublicApplicationRecord,
   files: File[],
   onProgress?: (progress: number) => void
 ) {
   const folderId = crypto.randomUUID();
   const documents = await uploadPublicDocuments(files, folderId, onProgress);
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from(APPLICATIONS_TABLE)
     .insert({
-      child_full_name: record.childFullName,
+      child_full_name: record.childFullName.trim(),
       birth_date: record.birthDate || null,
-      sponsor_name: record.sponsorName,
+      sponsor_name: record.sponsorName.trim(),
       sponsorship_amount: record.sponsorshipAmount,
-      sponsor_phone: record.sponsorPhone,
-      guardian_name: record.guardianName,
-      guardian_relation: record.guardianRelation,
-      guardian_phone: record.guardianPhone,
+      sponsor_phone: record.sponsorPhone.trim(),
+      guardian_name: record.guardianName.trim(),
+      guardian_relation: record.guardianRelation.trim(),
+      guardian_phone: record.guardianPhone.trim(),
       orphan_type: record.orphanType,
-      address: record.address,
-      transfer_account_name: record.transferAccountName,
-      transfer_account_number: record.transferAccountNumber,
+      address: record.address.trim(),
+      transfer_account_name: record.transferAccountName.trim(),
+      transfer_account_number: record.transferAccountNumber.trim(),
       documents_status: record.documentsStatus,
       governorate_city: record.governorateCity,
       gender: record.gender,
-      sponsorship_status: "بانتظار كافل",
+      sponsorship_status: record.sponsorshipStatus || "غير مكفول",
       file_status: "جديد بانتظار المراجعة",
       currency: record.currency,
       documents,
+      notes: record.notes?.trim() ?? "",
       source: "public_form",
       storage_folder_id: folderId,
     });
