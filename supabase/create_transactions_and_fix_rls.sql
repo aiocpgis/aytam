@@ -30,6 +30,7 @@ BEGIN
     file_status,
     currency,
     documents,
+    notes,
     source
   ) VALUES (
     (orphan_data->>'child_full_name'),
@@ -47,10 +48,11 @@ BEGIN
     COALESCE(orphan_data->>'documents_status', ''),
     COALESCE(orphan_data->>'governorate_city', ''),
     COALESCE(orphan_data->>'gender', 'غير محدد'),
-    COALESCE(orphan_data->>'sponsorship_status', 'بانتظار كافل'),
+    COALESCE(orphan_data->>'sponsorship_status', 'غير مكفول'),
     'مقبول',
     COALESCE(orphan_data->>'currency', 'غير محدد'),
     COALESCE(orphan_data->'documents', '[]'::jsonb),
+    COALESCE(orphan_data->>'notes', ''),
     'public_form'
   );
 
@@ -85,7 +87,7 @@ BEGIN
   -- B. Update Permission Overrides
   DELETE FROM public.user_permissions WHERE user_id = target_user_id;
   IF jsonb_array_length(permission_overrides) > 0 THEN
-    FOR override_record IN 
+    FOR override_record IN
       SELECT * FROM jsonb_to_recordset(permission_overrides) AS x(permission_id uuid, effect text)
     LOOP
       INSERT INTO public.user_permissions (user_id, permission_id, effect)
