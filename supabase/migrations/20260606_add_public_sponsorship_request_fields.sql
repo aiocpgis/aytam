@@ -39,6 +39,9 @@ with check (
   and sponsorship_status in ('غير مكفول', 'مكفول')
   and child_full_name is not null
   and length(trim(child_full_name)) >= 3
+  and birth_date is not null
+  and birth_date <= current_date
+  and birth_date > (current_date - interval '16 years')
   and guardian_phone is not null
   and length(trim(guardian_phone)) >= 7
   and transfer_account_name in ('بنك فلسطين', 'بال باي', 'جوال باي')
