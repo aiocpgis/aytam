@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, ExternalLink, FileText, XCircle, AlertTriangle } from "lucide-react";
+import { CheckCircle2, ExternalLink, FileText, XCircle } from "lucide-react";
 import type { OrphanRecord, UploadedDocument } from "../../types/orphan.types";
 import {
   approveApplication,
@@ -8,7 +8,6 @@ import {
   subscribeToPendingApplications,
 } from "../applications/applicationRequests.service";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
-import { AlertDialog } from "../../components/ui/AlertDialog";
 import { useToast } from "../../components/ui/ToastProvider";
 
 function formatDate(value: unknown) {
@@ -42,10 +41,10 @@ function DocumentButton({ document }: DocumentButtonProps) {
 
   return (
     <div className="relative inline-block">
-      <button 
-        type="button" 
-        className="secondary-btn px-3 py-2 text-xs hover:border-blue-300 hover:text-blue-600 transition" 
-        onClick={openDocument} 
+      <button
+        type="button"
+        className="secondary-btn px-3 py-2 text-xs hover:border-blue-300 hover:text-blue-600 transition"
+        onClick={openDocument}
         disabled={isOpening}
       >
         <ExternalLink className="h-3.5 w-3.5" />
@@ -64,12 +63,8 @@ export function ApplicationRequestsPanel() {
   const [applications, setApplications] = useState<OrphanRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
-
-  // Custom Confirm Dialog States
   const [approveTarget, setApproveTarget] = useState<OrphanRecord | null>(null);
   const [rejectTarget, setRejectTarget] = useState<OrphanRecord | null>(null);
-  
-  // Custom Error Alert State
   const [errorAlert, setErrorAlert] = useState<{ title: string; message: string } | null>(null);
   const { addToast } = useToast();
 
@@ -145,12 +140,12 @@ export function ApplicationRequestsPanel() {
             <div key={i} className="rounded-3xl border border-white/70 bg-white/60 p-5 shadow-sm animate-pulse">
               <div className="flex justify-between">
                 <div className="space-y-3 w-1/3">
-                  <div className="h-5 bg-slate-200/60 dark:bg-slate-700/60 rounded-lg w-3/4"></div>
-                  <div className="h-4 bg-slate-200/60 dark:bg-slate-700/60 rounded-lg w-1/2"></div>
+                  <div className="h-5 bg-slate-200/60 dark:bg-slate-700/60 rounded-lg w-3/4" />
+                  <div className="h-4 bg-slate-200/60 dark:bg-slate-700/60 rounded-lg w-1/2" />
                 </div>
-                <div className="h-8 bg-slate-200/60 dark:bg-slate-700/60 rounded-xl w-24"></div>
+                <div className="h-8 bg-slate-200/60 dark:bg-slate-700/60 rounded-xl w-24" />
               </div>
-              <div className="mt-4 h-20 bg-slate-200/40 dark:bg-slate-700/40 rounded-2xl w-full"></div>
+              <div className="mt-4 h-20 bg-slate-200/40 dark:bg-slate-700/40 rounded-2xl w-full" />
             </div>
           ))}
         </div>
@@ -161,50 +156,43 @@ export function ApplicationRequestsPanel() {
       ) : (
         <div className="space-y-4">
           {applications.map((application) => (
-            <article 
-              key={application.id} 
+            <article
+              key={application.id}
               className="rounded-3xl border border-white/70 bg-white/60 p-5 shadow-sm transition-all hover:bg-white/70 hover:shadow-md"
             >
               <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr_auto] lg:items-start">
                 <div>
-                  <h3 className="text-lg font-black text-slate-900">{application.childFullName}</h3>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-lg font-black text-slate-900">{application.childFullName}</h3>
+                    <span className={`rounded-full px-3 py-1 text-[10px] font-black ${
+                      application.sponsorshipStatus === "مكفول"
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                        : "bg-amber-50 text-amber-700 border border-amber-100"
+                    }`}>
+                      {application.sponsorshipStatus}
+                    </span>
+                  </div>
+
                   <div className="mt-3 grid gap-x-4 gap-y-2 text-xs font-bold text-slate-600 md:grid-cols-2">
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
-                      تاريخ الميلاد: {application.birthDate || "-"}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
-                      الجنس: {application.gender}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
-                      حالة اليتيم: {application.orphanType}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
-                      المحافظة: {application.governorateCity || "-"}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
-                      الوصي: {application.guardianName || "-"} ({application.guardianRelation || "-"})
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
-                      الجوال: {application.guardianPhone || "-"}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
-                      تاريخ الإرسال: {formatDate(application.createdAt)}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <span className="h-1.5 w-1.5 rounded-full bg-blue-500"></span>
-                      حالة المستندات: {application.documentsStatus || "غير مدقق"}
-                    </span>
+                    <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />تاريخ الميلاد: {application.birthDate || "-"}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />الجنس: {application.gender}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />حالة اليتيم: {application.orphanType}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />المحافظة: {application.governorateCity || "-"}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />الوصي: {application.guardianName || "-"} ({application.guardianRelation || "-"})</span>
+                    <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />الجوال: {application.guardianPhone || "-"}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />تاريخ الإرسال: {formatDate(application.createdAt)}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />حالة المستندات: {application.documentsStatus || "غير مدقق"}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />حساب الاستلام: {application.transferAccountName || "-"}</span>
+                    <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />جوال الحساب: {application.transferAccountNumber || "-"}</span>
+                    {application.sponsorshipStatus === "مكفول" && (
+                      <span className="flex items-center gap-1.5 md:col-span-2"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />اسم الكفيل: {application.sponsorName || "-"}</span>
+                    )}
+                    {application.notes?.trim() && (
+                      <span className="flex items-start gap-1.5 md:col-span-2 leading-6"><span className="mt-2 h-1.5 w-1.5 rounded-full bg-slate-400" />ملاحظات: {application.notes}</span>
+                    )}
                   </div>
                 </div>
 
-                {/* Uploaded Documents */}
                 <div className="bg-slate-50/40 rounded-2xl p-4 border border-slate-100/50">
                   <div className="mb-3 flex items-center gap-2 text-xs font-black text-slate-800">
                     <FileText className="h-4 w-4 text-blue-500" />
@@ -221,7 +209,6 @@ export function ApplicationRequestsPanel() {
                   )}
                 </div>
 
-                {/* Actions */}
                 <div className="flex gap-2 lg:flex-col justify-end h-full">
                   <button
                     type="button"
@@ -248,11 +235,10 @@ export function ApplicationRequestsPanel() {
         </div>
       )}
 
-      {/* Confirm Approve Dialog */}
       <ConfirmDialog
         isOpen={approveTarget !== null}
         title="تأكيد اعتماد الطلب"
-        message={`هل أنت متأكد من اعتماد طلب الطفل "${approveTarget?.childFullName}"؟ سيتم إدراجه تلقائياً كيتيم رسمي في شؤون الأبناء بانتظار الكافل.`}
+        message={`هل أنت متأكد من اعتماد طلب الطفل "${approveTarget?.childFullName}"؟ سيتم إدراجه تلقائياً كيتيم رسمي في شؤون الأبناء.`}
         confirmText="نعم، اعتماد السجل"
         cancelText="تراجع"
         tone="success"
@@ -260,7 +246,6 @@ export function ApplicationRequestsPanel() {
         onCancel={() => setApproveTarget(null)}
       />
 
-      {/* Confirm Reject Dialog */}
       <ConfirmDialog
         isOpen={rejectTarget !== null}
         title="تأكيد رفض الطلب"
@@ -272,7 +257,6 @@ export function ApplicationRequestsPanel() {
         onCancel={() => setRejectTarget(null)}
       />
 
-      {/* Error Alert Dialog */}
       <ConfirmDialog
         isOpen={errorAlert !== null}
         title={errorAlert?.title || "تنبيه"}
