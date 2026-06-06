@@ -3,7 +3,6 @@ import type { OrphanRecord, UploadedDocument } from "../../types/orphan.types";
 import { logActivity } from "../audit/activityLog.service";
 
 const APPLICATIONS_TABLE = "orphan_applications";
-const ORPHANS_TABLE = "orphans";
 const DOCUMENTS_BUCKET = "orphan-documents";
 
 type DbApplicationRecord = {
@@ -27,6 +26,7 @@ type DbApplicationRecord = {
   file_status?: string;
   currency?: string;
   documents?: UploadedDocument[];
+  notes?: string;
   source?: OrphanRecord["source"];
   storage_folder_id?: string | null;
   created_at?: string;
@@ -51,10 +51,11 @@ function fromDbApplication(record: DbApplicationRecord): OrphanRecord {
     documentsStatus: record.documents_status ?? "",
     governorateCity: record.governorate_city ?? "",
     gender: (record.gender ?? "غير محدد") as OrphanRecord["gender"],
-    sponsorshipStatus: (record.sponsorship_status ?? "بانتظار كافل") as OrphanRecord["sponsorshipStatus"],
+    sponsorshipStatus: (record.sponsorship_status ?? "غير مكفول") as OrphanRecord["sponsorshipStatus"],
     fileStatus: (record.file_status ?? "جديد بانتظار المراجعة") as OrphanRecord["fileStatus"],
     currency: (record.currency ?? "غير محدد") as OrphanRecord["currency"],
     documents: record.documents ?? [],
+    notes: record.notes ?? "",
     source: record.source ?? "public_form",
     createdAt: record.created_at,
     updatedAt: record.updated_at,
@@ -78,10 +79,11 @@ function toDbOrphan(record: OrphanRecord) {
     documents_status: record.documentsStatus || "",
     governorate_city: record.governorateCity || "",
     gender: record.gender || "غير محدد",
-    sponsorship_status: record.sponsorshipStatus || "بانتظار كافل",
+    sponsorship_status: record.sponsorshipStatus || "غير مكفول",
     file_status: "مقبول",
     currency: record.currency || "غير محدد",
     documents: record.documents ?? [],
+    notes: record.notes ?? "",
     source: "public_form",
   };
 }
@@ -137,7 +139,7 @@ export async function approveApplication(application: OrphanRecord) {
 
   const { error } = await supabase.rpc("approve_orphan_application_v1", {
     app_id: application.id,
-    orphan_data: toDbOrphan(application)
+    orphan_data: toDbOrphan(application),
   });
 
   if (error) throw error;
