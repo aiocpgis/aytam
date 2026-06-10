@@ -1,23 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
-import { 
-  Baby, 
-  ClipboardList, 
-  HandHeart, 
-  Hourglass, 
-  LayoutDashboard, 
-  Users, 
-  FileSpreadsheet, 
+import {
+  Baby,
+  ClipboardList,
+  Download,
+  FileSpreadsheet,
+  Filter,
   FolderClock,
+  HandHeart,
+  Heart,
+  Hourglass,
+  LayoutDashboard,
+  MapPin,
+  PieChart,
   Plus,
   Search,
-  Filter,
-  Trash2,
-  PieChart,
-  MapPin,
-  Heart,
+  ShieldCheck,
   TrendingUp,
   UserCog,
-  Download
+  Users,
 } from "lucide-react";
 import type { OrphanRecord } from "../../types/orphan.types";
 import { normalizeArabicText } from "../../lib/utils";
@@ -27,6 +27,7 @@ import { OrphansTable } from "../orphans/OrphansTable";
 import { createOrphan, deleteOrphan, subscribeToOrphans, updateOrphan } from "../orphans/orphan.service";
 import { ExcelImportPanel } from "./ExcelImportPanel";
 import { ApplicationRequestsPanel } from "./ApplicationRequestsPanel";
+import { DuplicateCheckPanel } from "./DuplicateCheckPanel";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { UserManagementPage } from "../users/UserManagementPage";
 import { SponsorshipDonutChart } from "../../components/charts/SponsorshipDonutChart";
@@ -34,7 +35,40 @@ import { GovernorateBarChart } from "../../components/charts/GovernorateBarChart
 import { exportDashboardStatsToPDF } from "../../lib/pdfExport";
 import { useToast } from "../../components/ui/ToastProvider";
 
-type DashboardTab = "overview" | "directory" | "applications" | "import" | "users";
+type DashboardTab = "overview" | "directory" | "applications" | "duplicates" | "import" | "users";
+
+type NavButtonProps = {
+  tab: DashboardTab;
+  activeTab: DashboardTab;
+  label: string;
+  icon: React.ReactNode;
+  badge?: number;
+  onClick: () => void;
+};
+
+function NavButton({ tab, activeTab, label, icon, badge, onClick }: NavButtonProps) {
+  const isActive = activeTab === tab;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center justify-center lg:justify-start gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl flex-grow lg:w-full transition-all ${
+        isActive
+          ? "bg-slate-900 text-white shadow-md scale-[1.02]"
+          : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
+      }`}
+    >
+      {icon}
+      <span>{label}</span>
+      {typeof badge === "number" && badge > 0 && (
+        <span className={`mr-auto px-2 py-0.5 rounded-full text-[10px] ${isActive ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"}`}>
+          {badge}
+        </span>
+      )}
+    </button>
+  );
+}
 
 export function DashboardPage() {
   const [records, setRecords] = useState<OrphanRecord[]>([]);
@@ -43,8 +77,6 @@ export function DashboardPage() {
   const [sponsorshipFilter, setSponsorshipFilter] = useState("الكل");
   const [fileStatusFilter, setFileStatusFilter] = useState("الكل");
   const [isLoading, setIsLoading] = useState(true);
-  
-  // Navigation & UI control states
   const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const [showAddForm, setShowAddForm] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -60,7 +92,6 @@ export function DashboardPage() {
     return unsubscribe;
   }, []);
 
-  // Stats calculation
   const stats = useMemo(() => {
     const sponsored = records.filter((item) => item.sponsorshipStatus === "مكفول").length;
     const waitingSponsor = records.filter((item) => item.sponsorshipStatus === "بانتظار كافل").length;
@@ -69,7 +100,6 @@ export function DashboardPage() {
     return { total: records.length, sponsored, waitingSponsor, stoppedSponsor, newFiles };
   }, [records]);
 
-  // Aggregated governorate data
   const governorateStats = useMemo(() => {
     const counts: Record<string, number> = {};
     records.forEach((record) => {
@@ -84,7 +114,7 @@ export function DashboardPage() {
         percentage: stats.total > 0 ? Math.round((count / stats.total) * 100) : 0,
       }))
       .sort((a, b) => b.count - a.count)
-      .slice(0, 5); // top 5
+      .slice(0, 5);
   }, [records, stats.total]);
 
   const filteredRecords = useMemo(() => {
@@ -119,15 +149,13 @@ export function DashboardPage() {
 
   async function handleDeleteConfirm() {
     if (!confirmDeleteId) return;
+
     try {
       setIsDeleting(true);
       await deleteOrphan(confirmDeleteId);
       addToast("تم حذف سجل اليتيم بنجاح", "success");
       setConfirmDeleteId(null);
-      // If the currently edited record is deleted, clear selection
-      if (selected?.id === confirmDeleteId) {
-        setSelected(null);
-      }
+      if (selected?.id === confirmDeleteId) setSelected(null);
     } catch (error) {
       console.error(error);
       addToast("حدث خطأ أثناء محاولة حذف السجل", "error");
@@ -136,7 +164,6 @@ export function DashboardPage() {
     }
   }
 
-  // Trigger form open automatically when editing
   useEffect(() => {
     if (selected) {
       setActiveTab("directory");
@@ -144,23 +171,30 @@ export function DashboardPage() {
     }
   }, [selected]);
 
+  function switchTab(tab: DashboardTab) {
+    setActiveTab(tab);
+    if (tab !== "directory") {
+      setSelected(null);
+      setShowAddForm(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-7xl pb-16">
-      {/* Dashboard Top bar / Subheader */}
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white/40 border border-white/60 p-4 rounded-3xl backdrop-blur-xl">
         <div>
           <h2 className="text-xl font-black text-slate-900">لوحة التحكم</h2>
           <p className="text-xs font-bold text-slate-500 mt-1">متابعة البيانات والكفالات وإدارة الملفات.</p>
         </div>
-        
-        {/* Quick actions depending on tab */}
+
         <div className="flex items-center gap-2">
           {activeTab === "overview" && (
-            <button 
+            <button
+              type="button"
               onClick={() => {
                 exportDashboardStatsToPDF(records);
                 addToast("تم تصدير التقرير بنجاح", "success");
-              }} 
+              }}
               className="secondary-btn text-xs font-black shadow-sm"
               title="تصدير تقرير الإحصائيات (PDF)"
             >
@@ -168,103 +202,75 @@ export function DashboardPage() {
               تصدير PDF
             </button>
           )}
+
           {activeTab === "directory" && (
-            <button 
+            <button
+              type="button"
               onClick={() => {
-              if (showAddForm) setSelected(null);
-              setShowAddForm(!showAddForm);
-            }} 
-            className="primary-btn text-xs font-black shadow-md"
-          >
-            <Plus className={`h-4 w-4 transition-transform ${showAddForm ? 'rotate-45' : ''}`} />
-            {showAddForm ? "إغلاق النموذج" : "إضافة يتيم جديد"}
+                if (showAddForm) setSelected(null);
+                setShowAddForm(!showAddForm);
+              }}
+              className="primary-btn text-xs font-black shadow-md"
+            >
+              <Plus className={`h-4 w-4 transition-transform ${showAddForm ? "rotate-45" : ""}`} />
+              {showAddForm ? "إغلاق النموذج" : "إضافة يتيم جديد"}
             </button>
           )}
         </div>
       </div>
 
-      {/* Main Dashboard Layout: Sidebar + Content */}
       <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
-        
-        {/* Navigation Sidebar */}
         <aside className="space-y-2 lg:h-fit">
           <nav className="flex lg:flex-col flex-wrap gap-2 p-2 rounded-3xl border border-white/60 bg-white/40 backdrop-blur-xl">
-            <button
-              onClick={() => { setActiveTab("overview"); setSelected(null); }}
-              className={`flex items-center justify-center lg:justify-start gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl flex-grow lg:w-full transition-all ${
-                activeTab === "overview"
-                  ? "bg-slate-900 text-white shadow-md scale-[1.02]"
-                  : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
-              }`}
-            >
-              <LayoutDashboard className="h-4 w-4 shrink-0" />
-              <span>الرئيسية</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab("directory")}
-              className={`flex items-center justify-center lg:justify-start gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl flex-grow lg:w-full transition-all ${
-                activeTab === "directory"
-                  ? "bg-slate-900 text-white shadow-md scale-[1.02]"
-                  : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
-              }`}
-            >
-              <Users className="h-4 w-4 shrink-0" />
-              <span>الأيتام</span>
-              {records.length > 0 && (
-                <span className={`mr-auto px-2 py-0.5 rounded-full text-[10px] ${
-                  activeTab === "directory" ? "bg-white/20 text-white" : "bg-slate-100 text-slate-600"
-                }`}>
-                  {records.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => { setActiveTab("applications"); setSelected(null); }}
-              className={`flex items-center justify-center lg:justify-start gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl flex-grow lg:w-full transition-all ${
-                activeTab === "applications"
-                  ? "bg-slate-900 text-white shadow-md scale-[1.02]"
-                  : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
-              }`}
-            >
-              <FolderClock className="h-4 w-4 shrink-0" />
-              <span>الطلبات الجديدة</span>
-            </button>
-
-            <button
-              onClick={() => { setActiveTab("import"); setSelected(null); }}
-              className={`flex items-center justify-center lg:justify-start gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl flex-grow lg:w-full transition-all ${
-                activeTab === "import"
-                  ? "bg-slate-900 text-white shadow-md scale-[1.02]"
-                  : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
-              }`}
-            >
-              <FileSpreadsheet className="h-4 w-4 shrink-0" />
-              <span>استيراد ملف</span>
-            </button>
-
-            <button
-              onClick={() => { setActiveTab("users"); setSelected(null); }}
-              className={`flex items-center justify-center lg:justify-start gap-3 px-4 py-3 text-xs font-extrabold rounded-2xl flex-grow lg:w-full transition-all ${
-                activeTab === "users"
-                  ? "bg-slate-900 text-white shadow-md scale-[1.02]"
-                  : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
-              }`}
-            >
-              <UserCog className="h-4 w-4 shrink-0" />
-              <span>المستخدمين</span>
-            </button>
+            <NavButton
+              tab="overview"
+              activeTab={activeTab}
+              label="الرئيسية"
+              icon={<LayoutDashboard className="h-4 w-4 shrink-0" />}
+              onClick={() => switchTab("overview")}
+            />
+            <NavButton
+              tab="directory"
+              activeTab={activeTab}
+              label="الأيتام"
+              icon={<Users className="h-4 w-4 shrink-0" />}
+              badge={records.length}
+              onClick={() => switchTab("directory")}
+            />
+            <NavButton
+              tab="applications"
+              activeTab={activeTab}
+              label="الطلبات الجديدة"
+              icon={<FolderClock className="h-4 w-4 shrink-0" />}
+              onClick={() => switchTab("applications")}
+            />
+            <NavButton
+              tab="duplicates"
+              activeTab={activeTab}
+              label="فحص التكرار"
+              icon={<ShieldCheck className="h-4 w-4 shrink-0" />}
+              onClick={() => switchTab("duplicates")}
+            />
+            <NavButton
+              tab="import"
+              activeTab={activeTab}
+              label="استيراد ملف"
+              icon={<FileSpreadsheet className="h-4 w-4 shrink-0" />}
+              onClick={() => switchTab("import")}
+            />
+            <NavButton
+              tab="users"
+              activeTab={activeTab}
+              label="المستخدمين"
+              icon={<UserCog className="h-4 w-4 shrink-0" />}
+              onClick={() => switchTab("users")}
+            />
           </nav>
         </aside>
 
-        {/* Dynamic Content Panel */}
         <section className="space-y-6">
-          
-          {/* TAB 1: OVERVIEW */}
           {activeTab === "overview" && (
             <div className="space-y-6 animate-in fade-in-50 duration-200">
-              {/* Stat Cards Grid */}
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard title="الأيتام" value={stats.total} icon={<Baby className="h-6 w-6" />} tone="blue" />
                 <StatCard title="طلبات جديدة" value={stats.newFiles} icon={<ClipboardList className="h-6 w-6" />} tone="amber" />
@@ -272,9 +278,7 @@ export function DashboardPage() {
                 <StatCard title="بانتظار كافل" value={stats.waitingSponsor} icon={<Hourglass className="h-6 w-6" />} tone="rose" />
               </div>
 
-              {/* Breathtaking Custom Interactive Analytics Dashboard */}
               <div className="grid gap-6 md:grid-cols-2">
-                {/* Visual 1: Sponsorship distribution donut equivalent */}
                 <div className="glass-card p-6 border border-white/60 bg-white/50 shadow-glass flex flex-col justify-between">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
@@ -284,7 +288,6 @@ export function DashboardPage() {
                     <p className="text-xs font-bold text-slate-400 mb-6">نسب التكفل بالأطفال المسجلين.</p>
                   </div>
 
-                  {/* Sleek dynamic charts */}
                   <div className="flex-1 min-h-0">
                     <SponsorshipDonutChart data={[
                       { name: "مكفول", value: stats.sponsored },
@@ -293,14 +296,14 @@ export function DashboardPage() {
                     ]} />
                   </div>
 
-
                   <div className="mt-6 border-t border-slate-100 pt-4 flex justify-between items-center text-xs font-bold text-slate-500">
                     <span className="flex items-center gap-1">
                       <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
                       نسبة التغطية الحالية: {stats.total > 0 ? Math.round((stats.sponsored / stats.total) * 100) : 0}%
                     </span>
-                    <button 
-                      onClick={() => setActiveTab("directory")} 
+                    <button
+                      type="button"
+                      onClick={() => switchTab("directory")}
                       className="text-blue-600 hover:underline font-extrabold flex items-center gap-0.5"
                     >
                       عرض الدليل التفصيلي ←
@@ -308,7 +311,6 @@ export function DashboardPage() {
                   </div>
                 </div>
 
-                {/* Visual 2: Governorate stats bar chart */}
                 <div className="glass-card p-6 border border-white/60 bg-white/50 shadow-glass">
                   <div className="flex items-center gap-2 mb-2">
                     <MapPin className="h-5 w-5 text-emerald-600" />
@@ -322,13 +324,12 @@ export function DashboardPage() {
                     </div>
                   ) : (
                     <div className="flex-1 min-h-0 mt-4">
-                      <GovernorateBarChart data={governorateStats.map(s => ({ name: s.name, value: s.count }))} />
+                      <GovernorateBarChart data={governorateStats.map((item) => ({ name: item.name, value: item.count }))} />
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Motivational Admin Footer Quote */}
               <div className="rounded-3xl border border-white/60 bg-white/40 p-6 flex flex-col md:flex-row items-center gap-4 text-right backdrop-blur-xl">
                 <div className="h-12 w-12 rounded-2xl bg-gradient-to-l from-rose-500 to-pink-400 grid place-items-center text-white shrink-0 shadow-soft">
                   <Heart className="h-6 w-6 fill-white" />
@@ -343,46 +344,41 @@ export function DashboardPage() {
             </div>
           )}
 
-          {/* TAB 2: DIRECTORY */}
           {activeTab === "directory" && (
             <div className="space-y-6 animate-in fade-in-50 duration-200">
-              
-              {/* Add / Edit Form Panel */}
               {showAddForm && (
                 <div className="animate-in fade-in-50 slide-in-from-top-4 duration-300">
-                  <OrphanForm 
-                    selected={selected} 
-                    onSubmit={handleSave} 
+                  <OrphanForm
+                    selected={selected}
+                    onSubmit={handleSave}
                     onCancel={() => {
                       setSelected(null);
                       setShowAddForm(false);
-                    }} 
+                    }}
                   />
                 </div>
               )}
 
-              {/* Search & Dynamic filters panel */}
               <div className="glass-card p-5 border border-white/60 bg-white/50 shadow-glass">
                 <div className="grid gap-4 md:grid-cols-[1.5fr_1fr_1fr]">
-                  {/* Search input with inner icon */}
                   <div className="relative">
-                    <input 
-                      className="glass-input pr-10" 
-                      placeholder="بحث بالاسم، الوصي، المدينة، الكفيل..." 
-                      value={search} 
-                      onChange={(e) => setSearch(e.target.value)} 
+                    <input
+                      className="glass-input pr-10"
+                      placeholder="بحث بالاسم، الوصي، المدينة، الكفيل..."
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
                     />
                     <Search className="absolute right-3.5 top-3.5 h-4 w-4 text-slate-400 pointer-events-none" />
                   </div>
 
-                  {/* Sponsorship filter */}
                   <div className="relative">
-                    <select 
-                      className="glass-input pr-10 appearance-none" 
-                      value={sponsorshipFilter} 
-                      onChange={(e) => setSponsorshipFilter(e.target.value)}
+                    <select
+                      className="glass-input pr-10 appearance-none"
+                      value={sponsorshipFilter}
+                      onChange={(event) => setSponsorshipFilter(event.target.value)}
                     >
                       <option value="الكل">جميع حالات الكفالة</option>
+                      <option value="غير مكفول">غير مكفول</option>
                       <option value="بانتظار كافل">بانتظار كافل</option>
                       <option value="مكفول">مكفول</option>
                       <option value="متوقف">متوقف</option>
@@ -390,12 +386,11 @@ export function DashboardPage() {
                     <Filter className="absolute right-3.5 top-3.5 h-4 w-4 text-slate-400 pointer-events-none" />
                   </div>
 
-                  {/* File status filter */}
                   <div className="relative">
-                    <select 
-                      className="glass-input pr-10 appearance-none" 
-                      value={fileStatusFilter} 
-                      onChange={(e) => setFileStatusFilter(e.target.value)}
+                    <select
+                      className="glass-input pr-10 appearance-none"
+                      value={fileStatusFilter}
+                      onChange={(event) => setFileStatusFilter(event.target.value)}
                     >
                       <option value="الكل">جميع حالات الملف</option>
                       <option value="جديد">جديد</option>
@@ -410,58 +405,54 @@ export function DashboardPage() {
                 </div>
               </div>
 
-              {/* Table Data */}
               {isLoading ? (
                 <div className="glass-card p-6 border border-white/50 bg-white/40 overflow-hidden">
                   <div className="animate-pulse space-y-4">
-                    <div className="h-10 bg-slate-200/50 dark:bg-slate-700/50 rounded-xl w-full"></div>
+                    <div className="h-10 bg-slate-200/50 dark:bg-slate-700/50 rounded-xl w-full" />
                     <div className="space-y-3">
-                      {[...Array(5)].map((_, i) => (
-                        <div key={i} className="flex gap-4">
-                          <div className="h-12 bg-slate-200/40 dark:bg-slate-700/40 rounded-xl w-1/4"></div>
-                          <div className="h-12 bg-slate-200/40 dark:bg-slate-700/40 rounded-xl w-1/4"></div>
-                          <div className="h-12 bg-slate-200/40 dark:bg-slate-700/40 rounded-xl w-1/4"></div>
-                          <div className="h-12 bg-slate-200/40 dark:bg-slate-700/40 rounded-xl w-1/4"></div>
+                      {[...Array(5)].map((_, index) => (
+                        <div key={index} className="flex gap-4">
+                          <div className="h-12 bg-slate-200/40 dark:bg-slate-700/40 rounded-xl w-1/4" />
+                          <div className="h-12 bg-slate-200/40 dark:bg-slate-700/40 rounded-xl w-1/4" />
+                          <div className="h-12 bg-slate-200/40 dark:bg-slate-700/40 rounded-xl w-1/4" />
+                          <div className="h-12 bg-slate-200/40 dark:bg-slate-700/40 rounded-xl w-1/4" />
                         </div>
                       ))}
                     </div>
                   </div>
                 </div>
               ) : (
-                <OrphansTable 
-                  records={filteredRecords} 
-                  onEdit={setSelected} 
-                  onDelete={setConfirmDeleteId} 
-                />
+                <OrphansTable records={filteredRecords} onEdit={setSelected} onDelete={setConfirmDeleteId} />
               )}
             </div>
           )}
 
-          {/* TAB 3: APPLICATION REQUESTS */}
           {activeTab === "applications" && (
             <div className="animate-in fade-in-50 duration-200">
               <ApplicationRequestsPanel />
             </div>
           )}
 
-          {/* TAB 4: EXCEL IMPORT */}
+          {activeTab === "duplicates" && (
+            <div className="animate-in fade-in-50 duration-200">
+              <DuplicateCheckPanel officialRecords={records} />
+            </div>
+          )}
+
           {activeTab === "import" && (
             <div className="animate-in fade-in-50 duration-200">
               <ExcelImportPanel />
             </div>
           )}
 
-          {/* TAB 5: USER MANAGEMENT */}
           {activeTab === "users" && (
             <div className="animate-in fade-in-50 duration-200">
               <UserManagementPage />
             </div>
           )}
-
         </section>
       </div>
 
-      {/* Custom Reusable Delete Confirm Dialog */}
       <ConfirmDialog
         isOpen={confirmDeleteId !== null}
         title="تأكيد حذف اليتيم"
