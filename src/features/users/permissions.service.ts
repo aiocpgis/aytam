@@ -1,36 +1,30 @@
 import { supabase } from "../../lib/supabase";
 
+const CORE_ROLE_ORDER = ["super_admin", "data_entry", "viewer"];
+
 export async function getCurrentUserPermissions(): Promise<string[]> {
   const { data: authUser, error: authError } = await supabase.auth.getUser();
   if (authError || !authUser.user) return [];
 
-  // We can call a specialized RPC or query tables.
-  // Actually, we can fetch from a materialized view or custom RPC to get flattened permissions.
-  // Since we created `has_permission` function, checking a list requires either multiple calls or a new RPC.
-  // Let's create an RPC `get_user_permissions()` that returns all keys, or we can fetch manually.
-  
-  // As a workaround, we'll fetch roles and permissions directly.
   const { data: roles } = await supabase
     .from("user_roles")
     .select("roles!inner(name)")
     .eq("user_id", authUser.user.id);
-    
+
   const isSuperAdmin = roles?.some((r: any) => r.roles.name === "super_admin");
 
   if (isSuperAdmin) {
-    // Return all permissions
     const { data: allPerms } = await supabase.from("permissions").select("key");
     return allPerms?.map((p: any) => p.key) || [];
   }
 
-  // Fetch role permissions
   const { data: rolePerms } = await supabase
     .from("user_roles")
     .select("roles!inner(role_permissions!inner(permissions(key)))")
     .eq("user_id", authUser.user.id);
 
-  let perms = new Set<string>();
-  
+  const perms = new Set<string>();
+
   if (rolePerms) {
     rolePerms.forEach((ur: any) => {
       ur.roles.role_permissions.forEach((rp: any) => {
@@ -39,7 +33,6 @@ export async function getCurrentUserPermissions(): Promise<string[]> {
     });
   }
 
-  // Fetch overrides
   const { data: userPerms } = await supabase
     .from("user_permissions")
     .select("effect, permissions!inner(key)")
@@ -67,9 +60,14 @@ export async function checkIsSuperAdmin(): Promise<boolean> {
 }
 
 export async function getAllRoles() {
-  const { data, error } = await supabase.from("roles").select("*").order("created_at", { ascending: true });
+  const { data, error } = await supabase
+    .from("roles")
+    .select("*")
+    .in("name", CORE_ROLE_ORDER);
+
   if (error) throw error;
-  return data;
+
+  return (data ?? []).sort((a: any, b: any) => CORE_ROLE_ORDER.indexOf(a.name) - CORE_ROLE_ORDER.indexOf(b.name));
 }
 
 export async function getAllPermissions() {
@@ -83,7 +81,7 @@ export async function getUserSpecificPermissions(userId: string) {
     .from("user_permissions")
     .select("effect, permissions(id, key)")
     .eq("user_id", userId);
-  
+
   if (error) throw error;
   return data;
 }
@@ -95,7 +93,7 @@ export async function setUserPermission(userId: string, permissionId: string, ef
     await supabase.from("user_permissions").upsert({
       user_id: userId,
       permission_id: permissionId,
-      effect
+      effect,
     });
   }
 }
