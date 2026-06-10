@@ -7,6 +7,7 @@ import {
   FileSpreadsheet,
   Filter,
   FolderClock,
+  HandCoins,
   HandHeart,
   Heart,
   Hourglass,
@@ -29,6 +30,7 @@ import { createOrphan, deleteOrphan, subscribeToOrphans, updateOrphan } from "..
 import { ExcelImportPanel } from "./ExcelImportPanel";
 import { ApplicationRequestsPanel } from "./ApplicationRequestsPanel";
 import { DuplicateCheckPanel } from "./DuplicateCheckPanel";
+import { SponsorshipDeliveryPanel } from "../sponsorships/SponsorshipDeliveryPanel";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { UserManagementPage } from "../users/UserManagementPage";
 import { SponsorshipDonutChart } from "../../components/charts/SponsorshipDonutChart";
@@ -36,7 +38,7 @@ import { GovernorateBarChart } from "../../components/charts/GovernorateBarChart
 import { exportDashboardStatsToPDF } from "../../lib/pdfExport";
 import { useToast } from "../../components/ui/ToastProvider";
 
-type DashboardTab = "overview" | "directory" | "applications" | "duplicates" | "import" | "users";
+type DashboardTab = "overview" | "directory" | "sponsorships" | "applications" | "duplicates" | "import" | "users";
 
 type NavButtonProps = {
   tab: DashboardTab;
@@ -239,6 +241,13 @@ export function DashboardPage() {
               onClick={() => switchTab("directory")}
             />
             <NavButton
+              tab="sponsorships"
+              activeTab={activeTab}
+              label="متابعة الكفالات"
+              icon={<HandCoins className="h-4 w-4 shrink-0" />}
+              onClick={() => switchTab("sponsorships")}
+            />
+            <NavButton
               tab="applications"
               activeTab={activeTab}
               label="الطلبات الجديدة"
@@ -425,6 +434,12 @@ export function DashboardPage() {
               ) : (
                 <OrphansTable records={filteredRecords} onEdit={setSelected} onDelete={setConfirmDeleteId} />
               )}
+            </div>
+          )}
+
+          {activeTab === "sponsorships" && (
+            <div className="animate-in fade-in-50 duration-200">
+              <SponsorshipDeliveryPanel records={records} />
             </div>
           )}
 
