@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>منصة رِفْق</title>
+  </head>
+  <body>
+    <script>
+      (function () {
+        var basePath = "/aytam";
+        var currentPath = window.location.pathname;
+        var search = window.location.search || "";
+        var hash = window.location.hash || "";
+        var appPath = currentPath.indexOf(basePath) === 0 ? currentPath.slice(basePath.length) : currentPath;
+
+        if (!appPath || appPath === "/") {
+          appPath = "/";
+        }
+
+        sessionStorage.setItem("aytam:path-redirect", appPath + search + hash);
+        window.location.replace(basePath + "/");
+      })();
+    </script>
+  </body>
+</html>
