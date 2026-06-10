@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import {
   Baby,
   ClipboardList,
@@ -41,7 +42,7 @@ type NavButtonProps = {
   tab: DashboardTab;
   activeTab: DashboardTab;
   label: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   badge?: number;
   onClick: () => void;
 };
