@@ -21,17 +21,17 @@ const COLORS = {
 };
 
 export function SponsorshipDonutChart({ data }: { data: ChartData[] }) {
-  if (!data || data.length === 0 || data.every(d => d.value === 0)) {
+  if (!data || data.length === 0 || data.every((item) => item.value === 0)) {
     return (
-      <div className="flex h-64 items-center justify-center rounded-2xl bg-slate-50 dark:bg-slate-800/50">
+      <div className="flex h-64 min-h-64 min-w-0 items-center justify-center rounded-2xl bg-slate-50 dark:bg-slate-800/50">
         <p className="text-sm font-medium text-slate-500 dark:text-slate-400">لا توجد بيانات متاحة للعرض</p>
       </div>
     );
   }
 
   return (
-    <div className="h-64 w-full">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="h-64 min-h-64 min-w-0 w-full overflow-hidden">
+      <ResponsiveContainer width="100%" height={256} minWidth={260} minHeight={256}>
         <PieChart>
           <Pie
             data={data}
