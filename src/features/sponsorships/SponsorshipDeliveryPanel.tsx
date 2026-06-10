@@ -24,6 +24,8 @@ type DeliveryDraft = {
   receivedAt: string;
   deliveredToGuardian: boolean;
   deliveredAt: string;
+  sponsorshipAmount: string;
+  currency: string;
   notes: string;
 };
 
@@ -38,6 +40,8 @@ interface SponsorshipDeliveryPanelProps {
   records: OrphanRecord[];
 }
 
+const currencyOptions = ["غير محدد", "شيكل", "دولار", "دينار", "يورو"];
+
 function currentMonthInputValue() {
   return new Date().toISOString().slice(0, 7);
 }
@@ -46,19 +50,34 @@ function todayInputValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function deliveryToDraft(delivery?: SponsorshipDeliveryRecord): DeliveryDraft {
+function amountToInputValue(value: number | null | undefined) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "";
+  return String(value);
+}
+
+function deliveryToDraft(delivery?: SponsorshipDeliveryRecord, fallbackRecord?: OrphanRecord): DeliveryDraft {
   return {
     sponsorshipReceived: delivery?.sponsorshipReceived ?? false,
     receivedAt: delivery?.receivedAt ?? "",
     deliveredToGuardian: delivery?.deliveredToGuardian ?? false,
     deliveredAt: delivery?.deliveredAt ?? "",
+    sponsorshipAmount: amountToInputValue(delivery?.sponsorshipAmount ?? fallbackRecord?.sponsorshipAmount ?? null),
+    currency: delivery?.currency ?? fallbackRecord?.currency ?? "غير محدد",
     notes: delivery?.notes ?? "",
   };
 }
 
-function formatAmount(value: number | null, currency: string) {
-  if (value === null || Number.isNaN(Number(value))) return "-";
-  return `${value} ${currency === "غير محدد" ? "" : currency}`.trim();
+function parseAmount(value: string) {
+  const normalized = value.trim().replace(/,/g, ".");
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatAmount(value: string, currency: string) {
+  const parsed = parseAmount(value);
+  if (parsed === null) return "-";
+  return `${parsed} ${currency === "غير محدد" ? "" : currency}`.trim();
 }
 
 function getDraftStatus(draft: DeliveryDraft) {
@@ -148,7 +167,7 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
 
     sponsoredRecords.forEach((record) => {
       if (!record.id) return;
-      nextDrafts[record.id] = deliveryToDraft(deliveryMap.get(record.id));
+      nextDrafts[record.id] = deliveryToDraft(deliveryMap.get(record.id), record);
     });
 
     setDrafts(nextDrafts);
@@ -183,7 +202,7 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
 
   async function persistDelivery(record: OrphanRecord) {
     if (!record.id) throw new Error("Orphan ID is missing.");
-    const draft = drafts[record.id] ?? deliveryToDraft();
+    const draft = drafts[record.id] ?? deliveryToDraft(undefined, record);
 
     return upsertSponsorshipDelivery({
       orphanId: record.id,
@@ -192,6 +211,8 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
       receivedAt: draft.sponsorshipReceived ? draft.receivedAt || todayInputValue() : null,
       deliveredToGuardian: draft.deliveredToGuardian,
       deliveredAt: draft.deliveredToGuardian ? draft.deliveredAt || todayInputValue() : null,
+      sponsorshipAmount: parseAmount(draft.sponsorshipAmount),
+      currency: draft.currency || "غير محدد",
       notes: draft.notes,
     });
   }
@@ -220,7 +241,7 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
   }
 
   const filteredRecords = useMemo(
-    () => sponsoredRecords.filter((record) => matchesFilter(drafts[record.id ?? ""] ?? deliveryToDraft(), statusFilter)),
+    () => sponsoredRecords.filter((record) => matchesFilter(drafts[record.id ?? ""] ?? deliveryToDraft(undefined, record), statusFilter)),
     [drafts, sponsoredRecords, statusFilter]
   );
 
@@ -267,7 +288,8 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
     const received = draftValues.filter((draft) => draft.sponsorshipReceived).length;
     const delivered = draftValues.filter((draft) => draft.deliveredToGuardian).length;
     const waitingDelivery = draftValues.filter((draft) => draft.sponsorshipReceived && !draft.deliveredToGuardian).length;
-    return { total: sponsoredRecords.length, received, delivered, waitingDelivery };
+    const totalAmount = draftValues.reduce((sum, draft) => sum + (parseAmount(draft.sponsorshipAmount) ?? 0), 0);
+    return { total: sponsoredRecords.length, received, delivered, waitingDelivery, totalAmount };
   }, [drafts, sponsoredRecords.length]);
 
   const filterOptions: Array<{ value: DeliveryFilter; label: string; count: number }> = [
@@ -288,7 +310,7 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
           <div>
             <h2 className="text-xl font-black text-slate-900">متابعة الكفالات</h2>
             <p className="mt-1 text-xs font-bold text-slate-500">
-              متابعة وصول الكفالة وتسليمها للوصي شهريًا مع ملاحظات واضحة لكل طفل.
+              متابعة وصول الكفالة وتسليمها للوصي شهريًا مع قيمة وملاحظات لكل طفل.
             </p>
           </div>
         </div>
@@ -319,10 +341,14 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
         </div>
       </div>
 
-      <div className="mb-5 grid gap-3 md:grid-cols-4">
+      <div className="mb-5 grid gap-3 md:grid-cols-5">
         <div className="rounded-2xl border border-slate-100 bg-white/60 px-4 py-3 text-center shadow-sm">
           <div className="text-lg font-black text-slate-900">{stats.total}</div>
           <div className="text-[11px] font-bold text-slate-500">طفل مكفول</div>
+        </div>
+        <div className="rounded-2xl border border-purple-100 bg-purple-50/70 px-4 py-3 text-center shadow-sm">
+          <div className="text-lg font-black text-purple-700">{stats.totalAmount}</div>
+          <div className="text-[11px] font-bold text-purple-700">إجمالي القيم</div>
         </div>
         <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-3 text-center shadow-sm">
           <div className="text-lg font-black text-emerald-700">{stats.received}</div>
@@ -392,7 +418,7 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
         <div className="grid gap-4">
           {filteredRecords.map((record) => {
             const orphanId = record.id;
-            const draft = orphanId ? drafts[orphanId] ?? deliveryToDraft() : deliveryToDraft();
+            const draft = orphanId ? drafts[orphanId] ?? deliveryToDraft(undefined, record) : deliveryToDraft(undefined, record);
             const rowSaveState = orphanId ? rowSaveStates[orphanId] : undefined;
             const status = getDraftStatus(draft);
 
@@ -409,7 +435,7 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
                     </div>
                     <div className="grid gap-x-5 gap-y-1 text-xs font-bold text-slate-500 md:grid-cols-3">
                       <span>الكفيل: <b className="text-slate-800">{record.sponsorName || "-"}</b></span>
-                      <span>القيمة: <b className="text-slate-800">{formatAmount(record.sponsorshipAmount, record.currency)}</b></span>
+                      <span>قيمة الشهر: <b className="text-slate-800">{formatAmount(draft.sponsorshipAmount, draft.currency)}</b></span>
                       <span>الوصي: <b className="text-slate-800">{record.guardianName || "-"}</b></span>
                     </div>
                   </div>
@@ -425,7 +451,33 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
                   </button>
                 </div>
 
-                <div className="grid gap-4 lg:grid-cols-[1fr_1fr_1.4fr]">
+                <div className="grid gap-4 xl:grid-cols-[0.9fr_1fr_1fr_1.4fr]">
+                  <div className="rounded-2xl border border-purple-100 bg-purple-50/60 p-4">
+                    <span className="mb-2 block text-[11px] font-black text-purple-700">قيمة الكفالة لهذا الشهر</span>
+                    <div className="grid gap-2 sm:grid-cols-[1fr_115px] xl:grid-cols-1">
+                      <input
+                        className="glass-input h-10 text-xs"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={draft.sponsorshipAmount}
+                        onChange={(event) => updateDraft(orphanId, { sponsorshipAmount: event.target.value })}
+                        placeholder="مثال: 100"
+                        disabled={!orphanId}
+                      />
+                      <select
+                        className="glass-input h-10 text-xs"
+                        value={draft.currency}
+                        onChange={(event) => updateDraft(orphanId, { currency: event.target.value })}
+                        disabled={!orphanId}
+                      >
+                        {currencyOptions.map((currency) => (
+                          <option key={currency} value={currency}>{currency}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
                   <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4">
                     <label className="mb-3 flex items-center gap-2 text-xs font-black text-slate-700">
                       <input
