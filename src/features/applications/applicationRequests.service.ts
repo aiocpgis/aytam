@@ -4,6 +4,7 @@ import { logActivity } from "../audit/activityLog.service";
 
 const APPLICATIONS_TABLE = "orphan_applications";
 const DOCUMENTS_BUCKET = "orphan-documents";
+const PENDING_APPLICATION_STATUS = "جديد بانتظار المراجعة";
 
 type DbApplicationRecord = {
   id?: string;
@@ -52,7 +53,7 @@ function fromDbApplication(record: DbApplicationRecord): OrphanRecord {
     governorateCity: record.governorate_city ?? "",
     gender: (record.gender ?? "غير محدد") as OrphanRecord["gender"],
     sponsorshipStatus: (record.sponsorship_status ?? "غير مكفول") as OrphanRecord["sponsorshipStatus"],
-    fileStatus: (record.file_status ?? "جديد بانتظار المراجعة") as OrphanRecord["fileStatus"],
+    fileStatus: (record.file_status ?? PENDING_APPLICATION_STATUS) as OrphanRecord["fileStatus"],
     currency: (record.currency ?? "غير محدد") as OrphanRecord["currency"],
     documents: record.documents ?? [],
     notes: record.notes ?? "",
@@ -92,8 +93,7 @@ export async function fetchPendingApplications() {
   const { data, error } = await supabase
     .from(APPLICATIONS_TABLE)
     .select("*")
-    .neq("file_status", "مقبول")
-    .neq("file_status", "مرفوض")
+    .eq("file_status", PENDING_APPLICATION_STATUS)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
