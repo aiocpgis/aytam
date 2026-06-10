@@ -6,6 +6,16 @@
     <meta name="description" content="نظام إدارة بيانات الأيتام والكفالات" />
     <title>منصة رِفْق لرعاية الأيتام</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✨</text></svg>">
+    <script>
+      (function () {
+        var redirectedPath = sessionStorage.getItem("aytam:path-redirect");
+        if (!redirectedPath) return;
+
+        sessionStorage.removeItem("aytam:path-redirect");
+        var normalizedPath = redirectedPath.charAt(0) === "/" ? redirectedPath : "/" + redirectedPath;
+        window.history.replaceState(null, "", "/aytam" + normalizedPath);
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
