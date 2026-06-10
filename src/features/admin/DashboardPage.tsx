@@ -222,9 +222,9 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
-        <aside className="space-y-2 lg:h-fit">
-          <nav className="flex lg:flex-col flex-wrap gap-2 p-2 rounded-3xl border border-white/60 bg-white/40 backdrop-blur-xl">
+      <div className="grid items-start gap-6 lg:grid-cols-[240px_1fr]">
+        <aside className="space-y-2 lg:sticky lg:top-5 lg:max-h-[calc(100vh-2.5rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:pb-2">
+          <nav className="flex lg:flex-col flex-wrap gap-2 p-2 rounded-3xl border border-white/60 bg-white/40 backdrop-blur-xl shadow-soft">
             <NavButton
               tab="overview"
               activeTab={activeTab}
