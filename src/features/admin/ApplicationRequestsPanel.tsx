@@ -21,6 +21,11 @@ interface DocumentButtonProps {
   document: UploadedDocument;
 }
 
+type ActionNotice = {
+  tone: "success" | "info";
+  message: string;
+};
+
 function DocumentButton({ document }: DocumentButtonProps) {
   const [isOpening, setIsOpening] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
@@ -66,6 +71,7 @@ export function ApplicationRequestsPanel() {
   const [approveTarget, setApproveTarget] = useState<OrphanRecord | null>(null);
   const [rejectTarget, setRejectTarget] = useState<OrphanRecord | null>(null);
   const [errorAlert, setErrorAlert] = useState<{ title: string; message: string } | null>(null);
+  const [actionNotice, setActionNotice] = useState<ActionNotice | null>(null);
   const { addToast } = useToast();
 
   useEffect(() => {
@@ -77,6 +83,20 @@ export function ApplicationRequestsPanel() {
     return unsubscribe;
   }, []);
 
+  useEffect(() => {
+    if (!actionNotice) return;
+
+    const timer = window.setTimeout(() => {
+      setActionNotice(null);
+    }, 6000);
+
+    return () => window.clearTimeout(timer);
+  }, [actionNotice]);
+
+  function removeApplicationFromList(applicationId: string) {
+    setApplications((current) => current.filter((application) => application.id !== applicationId));
+  }
+
   async function executeApprove() {
     const applicationId = approveTarget?.id;
     if (!applicationId) return;
@@ -85,7 +105,13 @@ export function ApplicationRequestsPanel() {
 
     try {
       setProcessingId(applicationId);
+      setActionNotice(null);
       await approveApplication(application);
+      removeApplicationFromList(applicationId);
+      setActionNotice({
+        tone: "success",
+        message: `تم اعتماد طلب ${application.childFullName} وإزالته من قائمة الانتظار.`,
+      });
       addToast("تم اعتماد طلب الكفالة بنجاح وإضافته لشؤون الأبناء", "success");
     } catch (error) {
       console.error(error);
@@ -101,11 +127,18 @@ export function ApplicationRequestsPanel() {
   async function executeReject() {
     const applicationId = rejectTarget?.id;
     if (!applicationId) return;
+    const rejectedApplicationName = rejectTarget?.childFullName || "الطلب";
     setRejectTarget(null);
 
     try {
       setProcessingId(applicationId);
+      setActionNotice(null);
       await rejectApplication(applicationId);
+      removeApplicationFromList(applicationId);
+      setActionNotice({
+        tone: "info",
+        message: `تم رفض ${rejectedApplicationName} وإزالته من قائمة الانتظار.`,
+      });
       addToast("تم رفض الطلب وحذفه من النظام", "info");
     } catch (error) {
       console.error(error);
@@ -120,6 +153,23 @@ export function ApplicationRequestsPanel() {
 
   return (
     <section className="glass-card p-6 border border-white/60 bg-white/50 shadow-glass">
+      {actionNotice && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed left-1/2 top-4 z-[90] w-[min(92vw,460px)] -translate-x-1/2 rounded-3xl border px-5 py-3 text-center text-sm font-black shadow-2xl backdrop-blur-xl ${
+            actionNotice.tone === "success"
+              ? "border-emerald-100 bg-emerald-50/95 text-emerald-800"
+              : "border-blue-100 bg-blue-50/95 text-blue-800"
+          }`}
+        >
+          <div className="flex items-center justify-center gap-2">
+            <CheckCircle2 className="h-5 w-5" />
+            <span>{actionNotice.message}</span>
+          </div>
+        </div>
+      )}
+
       <div className="mb-6 flex flex-col justify-between gap-3 md:flex-row md:items-center">
         <div>
           <h2 className="text-xl font-black text-slate-900 bg-gradient-to-l from-slate-900 to-slate-700 bg-clip-text text-transparent">
@@ -212,21 +262,21 @@ export function ApplicationRequestsPanel() {
                 <div className="flex gap-2 lg:flex-col justify-end h-full">
                   <button
                     type="button"
-                    className="primary-btn justify-center py-2.5 px-5 text-xs shadow-md"
+                    className="primary-btn justify-center py-2.5 px-5 text-xs shadow-md disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={processingId === application.id}
                     onClick={() => setApproveTarget(application)}
                   >
                     <CheckCircle2 className="h-4 w-4" />
-                    اعتماد الطلب
+                    {processingId === application.id ? "جارٍ الاعتماد..." : "اعتماد الطلب"}
                   </button>
                   <button
                     type="button"
-                    className="danger-btn justify-center py-2.5 px-5 text-xs"
+                    className="danger-btn justify-center py-2.5 px-5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
                     disabled={processingId === application.id}
                     onClick={() => setRejectTarget(application)}
                   >
                     <XCircle className="h-4 w-4" />
-                    رفض الطلب
+                    {processingId === application.id ? "جارٍ التنفيذ..." : "رفض الطلب"}
                   </button>
                 </div>
               </div>
