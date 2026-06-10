@@ -11,6 +11,8 @@ export type SponsorshipDeliveryRecord = {
   receivedAt: string | null;
   deliveredToGuardian: boolean;
   deliveredAt: string | null;
+  sponsorshipAmount: number | null;
+  currency: string;
   notes: string;
   createdAt?: string;
   updatedAt?: string;
@@ -24,6 +26,8 @@ type DbSponsorshipDeliveryRecord = {
   received_at?: string | null;
   delivered_to_guardian?: boolean;
   delivered_at?: string | null;
+  sponsorship_amount?: number | null;
+  currency?: string | null;
   notes?: string;
   created_at?: string;
   updated_at?: string;
@@ -52,6 +56,8 @@ function fromDbRecord(record: DbSponsorshipDeliveryRecord): SponsorshipDeliveryR
     receivedAt: record.received_at ?? null,
     deliveredToGuardian: record.delivered_to_guardian ?? false,
     deliveredAt: record.delivered_at ?? null,
+    sponsorshipAmount: record.sponsorship_amount ?? null,
+    currency: record.currency ?? "غير محدد",
     notes: record.notes ?? "",
     createdAt: record.created_at,
     updatedAt: record.updated_at,
@@ -66,6 +72,8 @@ function toDbRecord(record: UpsertSponsorshipDeliveryInput): DbSponsorshipDelive
     received_at: record.sponsorshipReceived ? record.receivedAt : null,
     delivered_to_guardian: record.deliveredToGuardian,
     delivered_at: record.deliveredToGuardian ? record.deliveredAt : null,
+    sponsorship_amount: record.sponsorshipAmount,
+    currency: record.currency || "غير محدد",
     notes: record.notes.trim(),
   };
 }
@@ -96,6 +104,8 @@ export async function upsertSponsorshipDelivery(record: UpsertSponsorshipDeliver
     periodMonth: normalizePeriodMonth(record.periodMonth),
     sponsorshipReceived: record.sponsorshipReceived,
     deliveredToGuardian: record.deliveredToGuardian,
+    sponsorshipAmount: record.sponsorshipAmount,
+    currency: record.currency,
   });
 
   return savedRecord;
