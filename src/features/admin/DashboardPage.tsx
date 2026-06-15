@@ -16,6 +16,7 @@ import {
   PieChart,
   Plus,
   Search,
+  ShieldAlert,
   ShieldCheck,
   TrendingUp,
   UserCog,
@@ -37,6 +38,8 @@ import { SponsorshipDonutChart } from "../../components/charts/SponsorshipDonutC
 import { GovernorateBarChart } from "../../components/charts/GovernorateBarChart";
 import { exportDashboardStatsToPDF } from "../../lib/pdfExport";
 import { useToast } from "../../components/ui/ToastProvider";
+import { usePermissions } from "../../hooks/usePermissions";
+import * as XLSX from "xlsx";
 
 type DashboardTab = "overview" | "directory" | "sponsorships" | "applications" | "duplicates" | "import" | "users";
 
@@ -74,17 +77,40 @@ function NavButton({ tab, activeTab, label, icon, badge, onClick }: NavButtonPro
 }
 
 export function DashboardPage() {
+  const { hasPermission, isLoading: permissionsLoading } = usePermissions();
   const [records, setRecords] = useState<OrphanRecord[]>([]);
   const [selected, setSelected] = useState<OrphanRecord | null>(null);
   const [search, setSearch] = useState("");
   const [sponsorshipFilter, setSponsorshipFilter] = useState("الكل");
   const [fileStatusFilter, setFileStatusFilter] = useState("الكل");
   const [isLoading, setIsLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
+  const [activeTab, setActiveTab] = useState<DashboardTab | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const { addToast } = useToast();
+
+  const allowedTabs = useMemo(() => {
+    const tabs: DashboardTab[] = [];
+    if (hasPermission("page.dashboard.view")) tabs.push("overview");
+    if (hasPermission("page.orphans.view")) {
+      tabs.push("directory");
+      tabs.push("sponsorships");
+      tabs.push("duplicates");
+    }
+    if (hasPermission("page.applications.view")) tabs.push("applications");
+    if (hasPermission("page.import.view")) tabs.push("import");
+    if (hasPermission("page.users.view")) tabs.push("users");
+    return tabs;
+  }, [hasPermission]);
+
+  useEffect(() => {
+    if (!permissionsLoading && allowedTabs.length > 0) {
+      if (!activeTab || !allowedTabs.includes(activeTab)) {
+        setActiveTab(allowedTabs[0]);
+      }
+    }
+  }, [allowedTabs, activeTab, permissionsLoading]);
 
   useEffect(() => {
     const unsubscribe = subscribeToOrphans((items) => {
@@ -167,10 +193,66 @@ export function DashboardPage() {
     }
   }
 
+  function handleExportExcel() {
+    try {
+      const canViewSensitive = hasPermission("orphans.view_sensitive");
+      
+      const maskPhone = (val: string | null | undefined) => {
+        if (!val) return "-";
+        const clean = val.replace(/[-\s]/g, "");
+        if (clean.length > 6) return `${clean.slice(0, 3)}****${clean.slice(-3)}`;
+        return "****";
+      };
+      const maskAccount = (val: string | null | undefined) => {
+        if (!val) return "-";
+        const clean = val.replace(/[-\s]/g, "");
+        if (clean.length > 4) return `${clean.slice(0, 2)}****${clean.slice(-2)}`;
+        return "****";
+      };
+
+      const dataToExport = filteredRecords.map((record) => {
+        return {
+          "اسم الطفل رباعي": record.childFullName,
+          "تاريخ الميلاد": record.birthDate || "غير محدد",
+          "الجنس": record.gender,
+          "حالة اليتيم": record.orphanType,
+          "المحافظة/المدينة": record.governorateCity || "غير محدد",
+          "مكان السكن بالتفصيل": record.address || "غير محدد",
+          "الوصي القانوني": record.guardianName || "غير محدد",
+          "صلة القرابة": record.guardianRelation || "غير محدد",
+          "رقم جوال الوصي": canViewSensitive ? (record.guardianPhone || "-") : maskPhone(record.guardianPhone),
+          "اسم الكفيل": record.sponsorName || "بانتظار كافل",
+          "رقم جوال الكفيل": canViewSensitive ? (record.sponsorPhone || "-") : maskPhone(record.sponsorPhone),
+          "قيمة الكفالة الشهرية": record.sponsorshipAmount ?? "-",
+          "العملة": record.sponsorshipAmount ? record.currency : "",
+          "حالة الكفالة": record.sponsorshipStatus,
+          "صاحب الحساب البنكي": canViewSensitive ? (record.transferAccountName || "-") : "غير مصرح",
+          "رقم الحساب أو الآيبان": canViewSensitive ? (record.transferAccountNumber || "-") : maskAccount(record.transferAccountNumber),
+          "حالة الأوراق": record.documentsStatus || "غير محدد",
+          "حالة الملف": record.fileStatus,
+          "الملاحظات": record.notes || "",
+          "تاريخ التسجيل": record.createdAt ? new Date(record.createdAt).toLocaleDateString("ar-EG") : "-",
+        };
+      });
+
+      const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+      worksheet["!dir"] = "rtl";
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "الأيتام");
+      XLSX.writeFile(workbook, `دليل_الأيتام_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      addToast("تم تصدير ملف Excel بنجاح", "success");
+    } catch (error) {
+      console.error("Failed to export Excel", error);
+      addToast("فشل تصدير ملف Excel", "error");
+    }
+  }
+
   useEffect(() => {
     if (selected) {
       setActiveTab("directory");
       setShowAddForm(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [selected]);
 
@@ -180,6 +262,28 @@ export function DashboardPage() {
       setSelected(null);
       setShowAddForm(false);
     }
+  }
+
+  if (permissionsLoading) {
+    return (
+      <div className="grid min-h-[400px] place-items-center text-sm font-bold text-slate-500">
+        جاري التحقق من صلاحيات الدخول...
+      </div>
+    );
+  }
+
+  if (allowedTabs.length === 0) {
+    return (
+      <div className="glass-card p-12 text-center border border-rose-200 bg-rose-50/50 max-w-xl mx-auto mt-10" dir="rtl">
+        <ShieldAlert className="h-12 w-12 text-rose-500 mx-auto mb-4" />
+        <h2 className="text-lg font-black text-rose-900">صلاحيات غير كافية</h2>
+        <p className="text-sm font-bold text-rose-600 mt-2">عذراً، ليس لديك الصلاحية لعرض أي صفحة في لوحة التحكم.</p>
+      </div>
+    );
+  }
+
+  if (!activeTab) {
+    return null;
   }
 
   return (
@@ -206,7 +310,18 @@ export function DashboardPage() {
             </button>
           )}
 
-          {activeTab === "directory" && (
+          {activeTab === "directory" && hasPermission("orphans.export") && (
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              className="secondary-btn text-xs font-black shadow-sm"
+            >
+              <FileSpreadsheet className="h-4 w-4 text-emerald-600" />
+              تصدير إلى Excel
+            </button>
+          )}
+
+          {activeTab === "directory" && hasPermission("orphans.create") && (
             <button
               type="button"
               onClick={() => {
@@ -225,56 +340,70 @@ export function DashboardPage() {
       <div className="grid items-start gap-6 lg:grid-cols-[240px_1fr]">
         <aside className="space-y-2 lg:sticky lg:top-5 lg:max-h-[calc(100vh-2.5rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain lg:pb-2">
           <nav className="flex lg:flex-col flex-wrap gap-2 p-2 rounded-3xl border border-white/60 bg-white/40 backdrop-blur-xl shadow-soft">
-            <NavButton
-              tab="overview"
-              activeTab={activeTab}
-              label="الرئيسية"
-              icon={<LayoutDashboard className="h-4 w-4 shrink-0" />}
-              onClick={() => switchTab("overview")}
-            />
-            <NavButton
-              tab="directory"
-              activeTab={activeTab}
-              label="الأيتام"
-              icon={<Users className="h-4 w-4 shrink-0" />}
-              badge={records.length}
-              onClick={() => switchTab("directory")}
-            />
-            <NavButton
-              tab="sponsorships"
-              activeTab={activeTab}
-              label="متابعة الكفالات"
-              icon={<HandCoins className="h-4 w-4 shrink-0" />}
-              onClick={() => switchTab("sponsorships")}
-            />
-            <NavButton
-              tab="applications"
-              activeTab={activeTab}
-              label="الطلبات الجديدة"
-              icon={<FolderClock className="h-4 w-4 shrink-0" />}
-              onClick={() => switchTab("applications")}
-            />
-            <NavButton
-              tab="duplicates"
-              activeTab={activeTab}
-              label="فحص التكرار"
-              icon={<ShieldCheck className="h-4 w-4 shrink-0" />}
-              onClick={() => switchTab("duplicates")}
-            />
-            <NavButton
-              tab="import"
-              activeTab={activeTab}
-              label="استيراد ملف"
-              icon={<FileSpreadsheet className="h-4 w-4 shrink-0" />}
-              onClick={() => switchTab("import")}
-            />
-            <NavButton
-              tab="users"
-              activeTab={activeTab}
-              label="المستخدمين"
-              icon={<UserCog className="h-4 w-4 shrink-0" />}
-              onClick={() => switchTab("users")}
-            />
+            {allowedTabs.includes("overview") && (
+              <NavButton
+                tab="overview"
+                activeTab={activeTab}
+                label="الرئيسية"
+                icon={<LayoutDashboard className="h-4 w-4 shrink-0" />}
+                onClick={() => switchTab("overview")}
+              />
+            )}
+            {allowedTabs.includes("directory") && (
+              <NavButton
+                tab="directory"
+                activeTab={activeTab}
+                label="الأيتام"
+                icon={<Users className="h-4 w-4 shrink-0" />}
+                badge={records.length}
+                onClick={() => switchTab("directory")}
+              />
+            )}
+            {allowedTabs.includes("sponsorships") && (
+              <NavButton
+                tab="sponsorships"
+                activeTab={activeTab}
+                label="متابعة الكفالات"
+                icon={<HandCoins className="h-4 w-4 shrink-0" />}
+                onClick={() => switchTab("sponsorships")}
+              />
+            )}
+            {allowedTabs.includes("applications") && (
+              <NavButton
+                tab="applications"
+                activeTab={activeTab}
+                label="الطلبات الجديدة"
+                icon={<FolderClock className="h-4 w-4 shrink-0" />}
+                onClick={() => switchTab("applications")}
+              />
+            )}
+            {allowedTabs.includes("duplicates") && (
+              <NavButton
+                tab="duplicates"
+                activeTab={activeTab}
+                label="فحص التكرار"
+                icon={<ShieldCheck className="h-4 w-4 shrink-0" />}
+                onClick={() => switchTab("duplicates")}
+              />
+            )}
+            {allowedTabs.includes("import") && (
+              <NavButton
+                tab="import"
+                activeTab={activeTab}
+                label="استيراد ملف"
+                icon={<FileSpreadsheet className="h-4 w-4 shrink-0" />}
+                onClick={() => switchTab("import")}
+              />
+            )}
+            {allowedTabs.includes("users") && (
+              <NavButton
+                tab="users"
+                activeTab={activeTab}
+                label="المستخدمين"
+                icon={<UserCog className="h-4 w-4 shrink-0" />}
+                onClick={() => switchTab("users")}
+              />
+            )}
           </nav>
         </aside>
 

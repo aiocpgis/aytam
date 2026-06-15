@@ -42,8 +42,8 @@ export interface OrphanRecord {
   notes?: string;
   photo_path?: string | null;
   photo_uploaded_at?: string | null;
-  createdAt?: unknown;
-  updatedAt?: unknown;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface OrphanFormValues {

@@ -18,6 +18,7 @@ import {
   upsertSponsorshipDelivery,
   type SponsorshipDeliveryRecord,
 } from "./sponsorshipDelivery.service";
+import { usePermissions } from "../../hooks/usePermissions";
 
 type DeliveryDraft = {
   sponsorshipReceived: boolean;
@@ -114,6 +115,9 @@ function matchesFilter(draft: DeliveryDraft, filter: DeliveryFilter) {
 }
 
 export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelProps) {
+  const { hasPermission } = usePermissions();
+  const canUpdate = hasPermission("orphans.update");
+
   const [periodMonth, setPeriodMonth] = useState(currentMonthInputValue());
   const [deliveries, setDeliveries] = useState<SponsorshipDeliveryRecord[]>([]);
   const [drafts, setDrafts] = useState<Record<string, DeliveryDraft>>({});
@@ -333,7 +337,7 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
             type="button"
             className="primary-btn h-[46px] justify-center px-5 text-xs font-black shadow-md disabled:cursor-not-allowed disabled:opacity-60"
             onClick={() => void saveAllVisible()}
-            disabled={isSavingAll || filteredRecords.length === 0 || isLoading}
+            disabled={isSavingAll || filteredRecords.length === 0 || isLoading || !canUpdate}
           >
             {isSavingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {isSavingAll ? "جارٍ حفظ الكل..." : `حفظ كل المعروض (${filteredRecords.length})`}
@@ -444,7 +448,7 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
                     type="button"
                     className="primary-btn justify-center px-5 py-2.5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={() => void saveDelivery(record)}
-                    disabled={!orphanId || rowSaveState?.status === "saving" || isSavingAll}
+                    disabled={!orphanId || rowSaveState?.status === "saving" || isSavingAll || !canUpdate}
                   >
                     {rowSaveState?.status === "saving" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     حفظ هذا السجل
@@ -463,13 +467,13 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
                         value={draft.sponsorshipAmount}
                         onChange={(event) => updateDraft(orphanId, { sponsorshipAmount: event.target.value })}
                         placeholder="مثال: 100"
-                        disabled={!orphanId}
+                        disabled={!orphanId || !canUpdate}
                       />
                       <select
                         className="glass-input h-10 text-xs"
                         value={draft.currency}
                         onChange={(event) => updateDraft(orphanId, { currency: event.target.value })}
-                        disabled={!orphanId}
+                        disabled={!orphanId || !canUpdate}
                       >
                         {currencyOptions.map((currency) => (
                           <option key={currency} value={currency}>{currency}</option>
@@ -489,7 +493,7 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
                             receivedAt: event.target.checked ? draft.receivedAt || todayInputValue() : "",
                           });
                         }}
-                        disabled={!orphanId}
+                        disabled={!orphanId || !canUpdate}
                       />
                       وصلت الكفالة
                     </label>
@@ -499,7 +503,7 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
                       type="date"
                       value={draft.receivedAt}
                       onChange={(event) => updateDraft(orphanId, { receivedAt: event.target.value })}
-                      disabled={!draft.sponsorshipReceived || !orphanId}
+                      disabled={!draft.sponsorshipReceived || !orphanId || !canUpdate}
                     />
                   </div>
 
@@ -514,7 +518,7 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
                             deliveredAt: event.target.checked ? draft.deliveredAt || todayInputValue() : "",
                           });
                         }}
-                        disabled={!orphanId}
+                        disabled={!orphanId || !canUpdate}
                       />
                       تم التسليم
                     </label>
@@ -524,7 +528,7 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
                       type="date"
                       value={draft.deliveredAt}
                       onChange={(event) => updateDraft(orphanId, { deliveredAt: event.target.value })}
-                      disabled={!draft.deliveredToGuardian || !orphanId}
+                      disabled={!draft.deliveredToGuardian || !orphanId || !canUpdate}
                     />
                   </div>
 
@@ -538,7 +542,7 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
                       value={draft.notes}
                       onChange={(event) => updateDraft(orphanId, { notes: event.target.value })}
                       placeholder="اكتب ملاحظات التسليم أو التأخير أو أي تفاصيل مهمة..."
-                      disabled={!orphanId}
+                      disabled={!orphanId || !canUpdate}
                     />
                   </div>
                 </div>

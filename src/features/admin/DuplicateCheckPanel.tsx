@@ -3,6 +3,32 @@ import { AlertCircle, CheckCircle2, Loader2, Search, ShieldCheck } from "lucide-
 import type { OrphanRecord } from "../../types/orphan.types";
 import { normalizeArabicText } from "../../lib/utils";
 import { fetchPendingApplications } from "../applications/applicationRequests.service";
+import { usePermissions } from "../../hooks/usePermissions";
+
+function maskSensitiveText(
+  value: string | null | undefined,
+  isSensitiveVisible: boolean,
+  type: "phone" | "account" | "text" = "text",
+  placeholder: string = "غير مصرح"
+) {
+  if (!value) return "-";
+  if (isSensitiveVisible) return value;
+  
+  const clean = value.replace(/[-\s]/g, "");
+  if (type === "phone") {
+    if (clean.length > 6) {
+      return `${clean.slice(0, 3)}****${clean.slice(-3)}`;
+    }
+    return "****";
+  }
+  if (type === "account") {
+    if (clean.length > 4) {
+      return `${clean.slice(0, 2)}****${clean.slice(-2)}`;
+    }
+    return "****";
+  }
+  return placeholder;
+}
 
 type DuplicateFieldKey =
   | "childFullName"
@@ -125,6 +151,14 @@ interface DuplicateCheckPanelProps {
 }
 
 export function DuplicateCheckPanel({ officialRecords }: DuplicateCheckPanelProps) {
+  const { hasPermission } = usePermissions();
+  const canViewSensitive = hasPermission("orphans.view_sensitive");
+
+  const allowedDuplicateFields = useMemo(() => {
+    const sensitiveKeys: DuplicateFieldKey[] = ["guardianPhone", "transferAccountNumber", "sponsorPhone"];
+    return duplicateFields.filter(field => canViewSensitive || !sensitiveKeys.includes(field.key));
+  }, [canViewSensitive]);
+
   const [selectedField, setSelectedField] = useState<DuplicateFieldKey>("childFullName");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<DuplicateSearchResult[]>([]);
@@ -133,8 +167,8 @@ export function DuplicateCheckPanel({ officialRecords }: DuplicateCheckPanelProp
   const [errorText, setErrorText] = useState<string | null>(null);
 
   const selectedFieldConfig = useMemo(
-    () => duplicateFields.find((field) => field.key === selectedField) ?? duplicateFields[0],
-    [selectedField]
+    () => allowedDuplicateFields.find((field) => field.key === selectedField) ?? allowedDuplicateFields[0],
+    [selectedField, allowedDuplicateFields]
   );
 
   async function executeSearch() {
@@ -222,7 +256,7 @@ export function DuplicateCheckPanel({ officialRecords }: DuplicateCheckPanelProp
                 setErrorText(null);
               }}
             >
-              {duplicateFields.map((field) => (
+              {allowedDuplicateFields.map((field) => (
                 <option key={field.key} value={field.key}>
                   {field.label}
                 </option>
@@ -302,11 +336,11 @@ export function DuplicateCheckPanel({ officialRecords }: DuplicateCheckPanelProp
                     <span>القيمة المطابقة: <b className="text-slate-900">{matchedValue || "-"}</b></span>
                     <span>تاريخ الإضافة: {formatDate(record.createdAt)}</span>
                     <span>الوصي: {record.guardianName || "-"}</span>
-                    <span>جوال الوصي: {record.guardianPhone || "-"}</span>
-                    <span>حساب الاستلام: {record.transferAccountName || "-"}</span>
-                    <span>جوال الحساب: {record.transferAccountNumber || "-"}</span>
+                    <span>جوال الوصي: {maskSensitiveText(record.guardianPhone, canViewSensitive, "phone")}</span>
+                    <span>حساب الاستلام: {maskSensitiveText(record.transferAccountName, canViewSensitive)}</span>
+                    <span>جوال الحساب: {maskSensitiveText(record.transferAccountNumber, canViewSensitive, "account")}</span>
                     <span>الكفيل: {record.sponsorName || "-"}</span>
-                    <span>جوال الكفيل: {record.sponsorPhone || "-"}</span>
+                    <span>جوال الكفيل: {maskSensitiveText(record.sponsorPhone, canViewSensitive, "phone")}</span>
                     <span className="md:col-span-2">المحافظة / المدينة: {record.governorateCity || "-"}</span>
                   </div>
                 </div>

@@ -9,6 +9,7 @@ import {
 } from "../applications/applicationRequests.service";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { useToast } from "../../components/ui/ToastProvider";
+import { usePermissions } from "../../hooks/usePermissions";
 
 function formatDate(value: unknown) {
   if (!value) return "-";
@@ -27,10 +28,15 @@ type ActionNotice = {
 };
 
 function DocumentButton({ document }: DocumentButtonProps) {
+  const { hasPermission } = usePermissions();
   const [isOpening, setIsOpening] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
 
   async function openDocument() {
+    if (!hasPermission("orphans.view_documents")) {
+      setErrorText("لا تملك الصلاحية.");
+      return;
+    }
     try {
       setIsOpening(true);
       setErrorText(null);
@@ -65,6 +71,7 @@ function DocumentButton({ document }: DocumentButtonProps) {
 }
 
 export function ApplicationRequestsPanel() {
+  const { hasPermission } = usePermissions();
   const [applications, setApplications] = useState<OrphanRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -260,24 +267,28 @@ export function ApplicationRequestsPanel() {
                 </div>
 
                 <div className="flex gap-2 lg:flex-col justify-end h-full">
-                  <button
-                    type="button"
-                    className="primary-btn justify-center py-2.5 px-5 text-xs shadow-md disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={processingId === application.id}
-                    onClick={() => setApproveTarget(application)}
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    {processingId === application.id ? "جارٍ الاعتماد..." : "اعتماد الطلب"}
-                  </button>
-                  <button
-                    type="button"
-                    className="danger-btn justify-center py-2.5 px-5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={processingId === application.id}
-                    onClick={() => setRejectTarget(application)}
-                  >
-                    <XCircle className="h-4 w-4" />
-                    {processingId === application.id ? "جارٍ التنفيذ..." : "رفض الطلب"}
-                  </button>
+                  {hasPermission("applications.approve") && (
+                    <button
+                      type="button"
+                      className="primary-btn justify-center py-2.5 px-5 text-xs shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={processingId === application.id}
+                      onClick={() => setApproveTarget(application)}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      {processingId === application.id ? "جارٍ الاعتماد..." : "اعتماد الطلب"}
+                    </button>
+                  )}
+                  {hasPermission("applications.reject") && (
+                    <button
+                      type="button"
+                      className="danger-btn justify-center py-2.5 px-5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                      disabled={processingId === application.id}
+                      onClick={() => setRejectTarget(application)}
+                    >
+                      <XCircle className="h-4 w-4" />
+                      {processingId === application.id ? "جارٍ التنفيذ..." : "رفض الطلب"}
+                    </button>
+                  )}
                 </div>
               </div>
             </article>

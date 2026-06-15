@@ -3,6 +3,7 @@ import type { OrphanFormValues, OrphanRecord } from "../../types/orphan.types";
 import { defaultOrphanFormValues, formValuesToOrphanRecord } from "./orphan.mapper";
 import { AlertCircle } from "lucide-react";
 import { OrphanPhotoUploader } from "./OrphanPhotoUploader";
+import { usePermissions } from "../../hooks/usePermissions";
 
 interface OrphanFormProps {
   selected?: OrphanRecord | null;
@@ -37,6 +38,8 @@ export function OrphanForm({ selected, onSubmit, onCancel }: OrphanFormProps) {
   const [values, setValues] = useState<OrphanFormValues>(defaultOrphanFormValues());
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { hasPermission } = usePermissions();
+  const canViewSensitive = hasPermission("orphans.view_sensitive");
 
   useEffect(() => {
     setValues(selected ? recordToFormValues(selected) : defaultOrphanFormValues());
@@ -208,10 +211,11 @@ export function OrphanForm({ selected, onSubmit, onCancel }: OrphanFormProps) {
         <div className="space-y-1.5">
           <label className="text-xs font-extrabold text-slate-600">رقم جوال الوصي</label>
           <input 
-            className="glass-input" 
+            className="glass-input disabled:bg-slate-100 disabled:text-slate-400" 
             placeholder="للتواصل والتأكيد" 
-            value={values.guardianPhone} 
+            value={!canViewSensitive && selected ? "********" : values.guardianPhone} 
             onChange={(e) => updateField("guardianPhone", e.target.value)} 
+            disabled={!canViewSensitive && !!selected}
           />
         </div>
 
@@ -241,10 +245,11 @@ export function OrphanForm({ selected, onSubmit, onCancel }: OrphanFormProps) {
         <div className="space-y-1.5">
           <label className="text-xs font-extrabold text-slate-600">رقم جوال الكفيل</label>
           <input 
-            className="glass-input" 
+            className="glass-input disabled:bg-slate-100 disabled:text-slate-400" 
             placeholder="جوال الكفيل إن وجد" 
-            value={values.sponsorPhone} 
+            value={!canViewSensitive && selected ? "********" : values.sponsorPhone} 
             onChange={(e) => updateField("sponsorPhone", e.target.value)} 
+            disabled={!canViewSensitive && !!selected}
           />
         </div>
 
@@ -252,10 +257,11 @@ export function OrphanForm({ selected, onSubmit, onCancel }: OrphanFormProps) {
         <div className="space-y-1.5">
           <label className="text-xs font-extrabold text-slate-600">صاحب الحساب البنكي</label>
           <input 
-            className="glass-input" 
+            className="glass-input disabled:bg-slate-100 disabled:text-slate-400" 
             placeholder="الاسم المسجل في البنك للتحويل" 
-            value={values.transferAccountName} 
+            value={!canViewSensitive && selected ? "********" : values.transferAccountName} 
             onChange={(e) => updateField("transferAccountName", e.target.value)} 
+            disabled={!canViewSensitive && !!selected}
           />
         </div>
 
@@ -263,10 +269,11 @@ export function OrphanForm({ selected, onSubmit, onCancel }: OrphanFormProps) {
         <div className="space-y-1.5">
           <label className="text-xs font-extrabold text-slate-600">رقم الحساب أو الآيبان</label>
           <input 
-            className="glass-input" 
+            className="glass-input disabled:bg-slate-100 disabled:text-slate-400" 
             placeholder="تفاصيل الحساب للتحويل" 
-            value={values.transferAccountNumber} 
+            value={!canViewSensitive && selected ? "********" : values.transferAccountNumber} 
             onChange={(e) => updateField("transferAccountNumber", e.target.value)} 
+            disabled={!canViewSensitive && !!selected}
           />
         </div>
 

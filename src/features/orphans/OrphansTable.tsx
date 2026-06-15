@@ -2,6 +2,7 @@ import { Edit3, Trash2, Calendar, MapPin, Shield, User, Landmark, Heart, Eye } f
 import { useState } from "react";
 import type { OrphanRecord } from "../../types/orphan.types";
 import { OrphanProfileModal } from "../../components/ui/OrphanProfileModal";
+import { usePermissions } from "../../hooks/usePermissions";
 
 interface OrphansTableProps {
   records: OrphanRecord[];
@@ -9,8 +10,35 @@ interface OrphansTableProps {
   onDelete: (id: string) => void;
 }
 
+function maskSensitiveText(
+  value: string | null | undefined,
+  isSensitiveVisible: boolean,
+  type: "phone" | "account" | "text" = "text",
+  placeholder: string = "غير مصرح"
+) {
+  if (!value) return "-";
+  if (isSensitiveVisible) return value;
+  
+  const clean = value.replace(/[-\s]/g, "");
+  if (type === "phone") {
+    if (clean.length > 6) {
+      return `${clean.slice(0, 3)}****${clean.slice(-3)}`;
+    }
+    return "****";
+  }
+  if (type === "account") {
+    if (clean.length > 4) {
+      return `${clean.slice(0, 2)}****${clean.slice(-2)}`;
+    }
+    return "****";
+  }
+  return placeholder;
+}
+
 export function OrphansTable({ records, onEdit, onDelete }: OrphansTableProps) {
   const [viewingOrphan, setViewingOrphan] = useState<OrphanRecord | null>(null);
+  const { hasPermission } = usePermissions();
+  const canViewSensitive = hasPermission("orphans.view_sensitive");
 
   if (records.length === 0) {
     return (
@@ -98,7 +126,7 @@ export function OrphansTable({ records, onEdit, onDelete }: OrphansTableProps) {
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-4 text-slate-500 text-sm font-semibold">{record.guardianPhone || "-"}</td>
+                  <td className="px-4 py-4 text-slate-500 text-sm font-semibold">{maskSensitiveText(record.guardianPhone, canViewSensitive, "phone")}</td>
                   <td className="px-4 py-4 text-slate-700 text-sm font-bold">
                     {record.sponsorName ? (
                       <span className="inline-flex items-center gap-1 text-slate-800">
@@ -131,20 +159,24 @@ export function OrphansTable({ records, onEdit, onDelete }: OrphansTableProps) {
                       >
                         <Eye className="h-4 w-4" />
                       </button>
-                      <button 
-                        className="p-2 rounded-xl border border-slate-200 bg-white/80 text-slate-600 shadow-sm transition hover:bg-blue-50 hover:text-blue-600 active:scale-95" 
-                        onClick={() => onEdit(record)} 
-                        title="تعديل"
-                      >
-                        <Edit3 className="h-4 w-4" />
-                      </button>
-                      <button 
-                        className="p-2 rounded-xl border border-rose-200 bg-rose-50/50 text-rose-600 transition hover:bg-rose-100 hover:text-rose-700 active:scale-95" 
-                        onClick={() => record.id && onDelete(record.id)} 
-                        title="حذف"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {hasPermission("orphans.update") && (
+                        <button 
+                          className="p-2 rounded-xl border border-slate-200 bg-white/80 text-slate-600 shadow-sm transition hover:bg-blue-50 hover:text-blue-600 active:scale-95" 
+                          onClick={() => onEdit(record)} 
+                          title="تعديل"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </button>
+                      )}
+                      {hasPermission("orphans.delete") && (
+                        <button 
+                          className="p-2 rounded-xl border border-rose-200 bg-rose-50/50 text-rose-600 transition hover:bg-rose-100 hover:text-rose-700 active:scale-95" 
+                          onClick={() => record.id && onDelete(record.id)} 
+                          title="حذف"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -225,8 +257,16 @@ export function OrphansTable({ records, onEdit, onDelete }: OrphansTableProps) {
                   الحساب البنكي:
                 </div>
                 <div className="text-slate-800 text-left font-mono">
-                  {record.transferAccountName && `${record.transferAccountName} - `}
-                  {record.transferAccountNumber || "-"}
+                  {canViewSensitive ? (
+                    <>
+                      {record.transferAccountName && `${record.transferAccountName} - `}
+                      {record.transferAccountNumber || "-"}
+                    </>
+                  ) : (
+                    <>
+                      غير مصرح - {maskSensitiveText(record.transferAccountNumber, false, "account")}
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -241,22 +281,26 @@ export function OrphansTable({ records, onEdit, onDelete }: OrphansTableProps) {
                 <Eye className="h-3.5 w-3.5 text-indigo-500" />
                 عرض الملف
               </button>
-              <button 
-                type="button" 
-                className="secondary-btn py-2 px-4 text-xs" 
-                onClick={() => onEdit(record)}
-              >
-                <Edit3 className="h-3.5 w-3.5" />
-                تعديل البيانات
-              </button>
-              <button 
-                type="button" 
-                className="danger-btn py-2 px-4 text-xs" 
-                onClick={() => record.id && onDelete(record.id)}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                حذف السجل
-              </button>
+              {hasPermission("orphans.update") && (
+                <button 
+                  type="button" 
+                  className="secondary-btn py-2 px-4 text-xs" 
+                  onClick={() => onEdit(record)}
+                >
+                  <Edit3 className="h-3.5 w-3.5" />
+                  تعديل البيانات
+                </button>
+              )}
+              {hasPermission("orphans.delete") && (
+                <button 
+                  type="button" 
+                  className="danger-btn py-2 px-4 text-xs" 
+                  onClick={() => record.id && onDelete(record.id)}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  حذف السجل
+                </button>
+              )}
             </div>
           </article>
         ))}

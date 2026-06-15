@@ -48,6 +48,7 @@ import type { UserProfile, Role, Permission } from "../../types/user.types";
 import { getAllRoles, getAllPermissions } from "./permissions.service";
 import { usePermissions } from "../../hooks/usePermissions";
 import { useToast } from "../../components/ui/ToastProvider";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { logActivity } from "../audit/activityLog.service";
 
 type SettingsSubTab = "users" | "general" | "audit" | "storage" | "maintenance";
@@ -63,6 +64,60 @@ export function UserManagementPage() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   const { hasPermission } = usePermissions();
+  const { addToast } = useToast();
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [confirmDeleteUser, setConfirmDeleteUser] = useState<UserProfile | null>(null);
+
+  const canViewSettings = hasPermission("page.settings.view");
+
+  useEffect(() => {
+    async function loadCurrentUser() {
+      const { data } = await supabase.auth.getUser();
+      if (data?.user) {
+        setCurrentUserId(data.user.id);
+      }
+    }
+    loadCurrentUser();
+  }, []);
+
+  async function toggleUserStatus(user: UserProfile) {
+    const nextStatus = user.status === "active" ? "suspended" : "active";
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ status: nextStatus })
+        .eq("id", user.id);
+      if (error) throw error;
+      
+      await logActivity(
+        nextStatus === "suspended" ? "تجميد حساب مشرف" : "تنشيط حساب مشرف",
+        "المستخدمين",
+        user.id,
+        { email: user.email }
+      );
+      addToast(`تم ${nextStatus === "suspended" ? "تجميد" : "تنشيط"} الحساب بنجاح`, "success");
+      triggerRefresh();
+    } catch (err) {
+      console.error(err);
+      addToast("فشل في تعديل حالة الحساب", "error");
+    }
+  }
+
+  async function handleDeleteUser(userId: string) {
+    try {
+      const { error } = await supabase.rpc("delete_system_user_v1", {
+        target_user_id: userId
+      });
+      if (error) throw error;
+      
+      await logActivity("حذف حساب مشرف", "المستخدمين", userId);
+      addToast("تم حذف حساب المشرف بنجاح", "success");
+      triggerRefresh();
+    } catch (err) {
+      console.error(err);
+      addToast(err instanceof Error ? err.message : "فشل حذف المشرف", "error");
+    }
+  }
 
   useEffect(() => {
     async function fetchData() {
@@ -138,17 +193,19 @@ export function UserManagementPage() {
           <span>المشرفين والصلاحيات</span>
         </button>
 
-        <button
-          onClick={() => setActiveSubTab("general")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ${
-            activeSubTab === "general"
-              ? "bg-slate-900 text-white shadow-md scale-[1.02]"
-              : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
-          }`}
-        >
-          <Settings className="h-4 w-4 text-blue-500" />
-          <span>الإعدادات العامة</span>
-        </button>
+        {canViewSettings && (
+          <button
+            onClick={() => setActiveSubTab("general")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ${
+              activeSubTab === "general"
+                ? "bg-slate-900 text-white shadow-md scale-[1.02]"
+                : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
+            }`}
+          >
+            <Settings className="h-4 w-4 text-blue-500" />
+            <span>الإعدادات العامة</span>
+          </button>
+        )}
 
         <button
           onClick={() => setActiveSubTab("audit")}
@@ -162,29 +219,33 @@ export function UserManagementPage() {
           <span>سجل الرقابة</span>
         </button>
 
-        <button
-          onClick={() => setActiveSubTab("storage")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ${
-            activeSubTab === "storage"
-              ? "bg-slate-900 text-white shadow-md scale-[1.02]"
-              : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
-          }`}
-        >
-          <HardDrive className="h-4 w-4 text-amber-500" />
-          <span>قواعد التخزين</span>
-        </button>
+        {canViewSettings && (
+          <button
+            onClick={() => setActiveSubTab("storage")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ${
+              activeSubTab === "storage"
+                ? "bg-slate-900 text-white shadow-md scale-[1.02]"
+                : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
+            }`}
+          >
+            <HardDrive className="h-4 w-4 text-amber-500" />
+            <span>قواعد التخزين</span>
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveSubTab("maintenance")}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ${
-            activeSubTab === "maintenance"
-              ? "bg-slate-900 text-white shadow-md scale-[1.02]"
-              : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
-          }`}
-        >
-          <ShieldAlert className="h-4 w-4 text-rose-500" />
-          <span>وضع الصيانة</span>
-        </button>
+        {canViewSettings && (
+          <button
+            onClick={() => setActiveSubTab("maintenance")}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-black rounded-xl transition-all duration-300 ${
+              activeSubTab === "maintenance"
+                ? "bg-slate-900 text-white shadow-md scale-[1.02]"
+                : "text-slate-600 hover:bg-white/60 hover:text-slate-950"
+            }`}
+          >
+            <ShieldAlert className="h-4 w-4 text-rose-500" />
+            <span>وضع الصيانة</span>
+          </button>
+        )}
       </div>
 
       {/* Render Active Sub-Tab Panel */}
@@ -249,15 +310,40 @@ export function UserManagementPage() {
                         </div>
                       </td>
                       <td className="p-3 text-center">
-                        {hasPermission("users.assign_permissions") && (
-                          <button 
-                            onClick={() => setSelectedUser(selectedUser?.id === user.id ? null : user)}
-                            className="text-xs font-black text-indigo-600 hover:text-indigo-900 bg-indigo-50 px-3 py-1 rounded-lg transition-colors inline-flex items-center gap-1"
-                          >
-                            <KeyRound className="h-3.5 w-3.5" />
-                            الصلاحيات
-                          </button>
-                        )}
+                        <div className="flex items-center justify-center gap-2">
+                          {hasPermission("users.assign_permissions") && (
+                            <button 
+                              onClick={() => setSelectedUser(selectedUser?.id === user.id ? null : user)}
+                              className="text-xs font-black text-indigo-600 hover:text-indigo-900 bg-indigo-50 px-3 py-1 rounded-lg transition-colors inline-flex items-center gap-1"
+                              title="تعديل الأدوار والصلاحيات"
+                            >
+                              <KeyRound className="h-3.5 w-3.5" />
+                              الصلاحيات
+                            </button>
+                          )}
+                          {hasPermission("users.update") && user.id !== currentUserId && (
+                            <button
+                              onClick={() => toggleUserStatus(user)}
+                              className={`text-xs font-black px-3 py-1 rounded-lg transition-colors inline-flex items-center gap-1 ${
+                                user.status === "active"
+                                  ? "text-amber-600 hover:text-amber-900 bg-amber-50/80 hover:bg-amber-100"
+                                  : "text-emerald-600 hover:text-emerald-900 bg-emerald-50/80 hover:bg-emerald-100"
+                              }`}
+                              title={user.status === "active" ? "تجميد الحساب" : "تنشيط الحساب"}
+                            >
+                              {user.status === "active" ? "تجميد" : "تنشيط"}
+                            </button>
+                          )}
+                          {hasPermission("users.delete") && user.id !== currentUserId && (
+                            <button
+                              onClick={() => setConfirmDeleteUser(user)}
+                              className="text-xs font-black text-rose-600 hover:text-rose-900 bg-rose-50/80 hover:bg-rose-100 px-3 py-1 rounded-lg transition-colors inline-flex items-center gap-1"
+                              title="حذف الحساب نهائياً"
+                            >
+                              حذف
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -296,7 +382,7 @@ export function UserManagementPage() {
         </div>
       )}
 
-      {activeSubTab === "general" && (
+      {activeSubTab === "general" && canViewSettings && (
         <div className="animate-in fade-in-50 duration-200">
           <GeneralSettingsPanel />
         </div>
@@ -308,16 +394,31 @@ export function UserManagementPage() {
         </div>
       )}
 
-      {activeSubTab === "storage" && (
+      {activeSubTab === "storage" && canViewSettings && (
         <div className="animate-in fade-in-50 duration-200">
           <StorageRulesPanel />
         </div>
       )}
 
-      {activeSubTab === "maintenance" && (
+      {activeSubTab === "maintenance" && canViewSettings && (
         <div className="space-y-6 animate-in fade-in-50 duration-200">
           <MaintenanceToggleCard />
         </div>
+      )}
+
+      {confirmDeleteUser && (
+        <ConfirmDialog
+          isOpen={!!confirmDeleteUser}
+          title="حذف حساب المشرف"
+          message={`هل أنت متأكد من رغبتك في حذف حساب المشرف (${confirmDeleteUser.full_name || confirmDeleteUser.email}) نهائياً؟ هذا الإجراء لا يمكن التراجع عنه وسيحذف كافة صلاحياته وأدواره.`}
+          confirmText="نعم، احذف الحساب"
+          cancelText="إلغاء"
+          onConfirm={async () => {
+            await handleDeleteUser(confirmDeleteUser.id);
+            setConfirmDeleteUser(null);
+          }}
+          onCancel={() => setConfirmDeleteUser(null)}
+        />
       )}
     </div>
   );
@@ -702,6 +803,9 @@ function AddUserModal({
 
 // Sub-component for toggling maintenance mode
 function MaintenanceToggleCard() {
+  const { hasPermission } = usePermissions();
+  const canUpdate = hasPermission("users.assign_permissions");
+
   const [isMaintenance, setIsMaintenance] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isUpdating, setIsUpdating] = useState<boolean>(false);
@@ -884,7 +988,7 @@ function MaintenanceToggleCard() {
         {isUpdating && <Loader2 className="h-4 w-4 animate-spin text-slate-500" />}
         <button
           onClick={handleToggle}
-          disabled={isUpdating}
+          disabled={isUpdating || !canUpdate}
           className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
             isMaintenance ? "bg-rose-500" : "bg-slate-300 dark:bg-slate-700"
           }`}
@@ -902,6 +1006,9 @@ function MaintenanceToggleCard() {
 
 // Sub-component for editing general platform details
 function GeneralSettingsPanel() {
+  const { hasPermission } = usePermissions();
+  const canUpdate = hasPermission("users.assign_permissions");
+
   const [platformName, setPlatformName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
@@ -1008,7 +1115,8 @@ function GeneralSettingsPanel() {
         <p className="text-[11px] text-slate-500 font-bold mt-1">تحديد اسم المنصة وقنوات التواصل الاجتماعي والشعار لتحديثها تلقائياً بالمنصة.</p>
       </div>
 
-      <div className="glass-card p-6 border border-white/60 bg-white/50 shadow-glass space-y-6">
+      <div className="glass-card p-6 border border-white/60 bg-white/50 shadow-glass">
+        <fieldset disabled={!canUpdate} className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-black text-slate-700 mb-1.5 border-r-4 border-blue-500 pr-2">اسم المنصة / الجمعية</label>
@@ -1103,10 +1211,12 @@ function GeneralSettingsPanel() {
           </div>
         </div>
 
+        </fieldset>
+
         <div className="mt-8 flex justify-end pt-4 border-t border-slate-200">
           <button 
             onClick={handleSave} 
-            disabled={isSaving}
+            disabled={isSaving || !canUpdate}
             className="primary-btn text-sm px-6 bg-gradient-to-l from-blue-600 to-cyan-500"
           >
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
@@ -1243,6 +1353,9 @@ function AuditLogsPanel() {
 
 // Sub-component for managing system uploads & sizes
 function StorageRulesPanel() {
+  const { hasPermission } = usePermissions();
+  const canUpdate = hasPermission("users.assign_permissions");
+
   const [maxSize, setMaxSize] = useState(10);
   const [allowedExtensions, setAllowedExtensions] = useState<string[]>(["pdf", "png", "jpg", "jpeg"]);
   const [isLoading, setIsLoading] = useState(true);
@@ -1333,7 +1446,8 @@ function StorageRulesPanel() {
         <p className="text-[11px] text-slate-500 font-bold mt-1">تحديد الحجم الأقصى ونوعية المرفقات الثبوتية التي يمكن للمتقدمين رفعها للمنصة.</p>
       </div>
 
-      <div className="glass-card p-6 border border-white/60 bg-white/50 shadow-glass space-y-6">
+      <div className="glass-card p-6 border border-white/60 bg-white/50 shadow-glass">
+        <fieldset disabled={!canUpdate} className="space-y-6">
         <div>
           <label className="block text-xs font-black text-slate-700 mb-2 border-r-4 border-amber-500 pr-2">الحجم الأقصى للملف الواحد (ميغابايت)</label>
           <div className="flex items-center gap-3 max-w-xs">
@@ -1369,10 +1483,12 @@ function StorageRulesPanel() {
           </div>
         </div>
 
+        </fieldset>
+
         <div className="mt-8 flex justify-end pt-4 border-t border-slate-200">
           <button 
             onClick={handleSave} 
-            disabled={isSaving}
+            disabled={isSaving || !canUpdate}
             className="primary-btn text-sm px-6 bg-gradient-to-l from-amber-600 to-yellow-500"
           >
             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}

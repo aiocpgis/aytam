@@ -1,9 +1,35 @@
 import { Baby, Calendar, FileText, Heart, MapPin, User, X, Shield, Landmark } from "lucide-react";
 import type { OrphanRecord } from "../../types/orphan.types";
+import { usePermissions } from "../../hooks/usePermissions";
 
 interface OrphanProfileModalProps {
   orphan: OrphanRecord;
   onClose: () => void;
+}
+
+function maskSensitiveText(
+  value: string | null | undefined,
+  isSensitiveVisible: boolean,
+  type: "phone" | "account" | "text" = "text",
+  placeholder: string = "غير مصرح"
+) {
+  if (!value) return "-";
+  if (isSensitiveVisible) return value;
+  
+  const clean = value.replace(/[-\s]/g, "");
+  if (type === "phone") {
+    if (clean.length > 6) {
+      return `${clean.slice(0, 3)}****${clean.slice(-3)}`;
+    }
+    return "****";
+  }
+  if (type === "account") {
+    if (clean.length > 4) {
+      return `${clean.slice(0, 2)}****${clean.slice(-2)}`;
+    }
+    return "****";
+  }
+  return placeholder;
 }
 
 function formatDate(dateValue: unknown) {
@@ -14,6 +40,9 @@ function formatDate(dateValue: unknown) {
 }
 
 export function OrphanProfileModal({ orphan, onClose }: OrphanProfileModalProps) {
+  const { hasPermission } = usePermissions();
+  const canViewSensitive = hasPermission("orphans.view_sensitive");
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
       {/* Backdrop */}
@@ -129,7 +158,7 @@ export function OrphanProfileModal({ orphan, onClose }: OrphanProfileModalProps)
                 </div>
                 <div className="bg-white/40 dark:bg-slate-800/40 p-3 rounded-2xl border border-white/60 dark:border-slate-700/60">
                   <span className="text-[10px] font-bold text-slate-400 block mb-1">جوال الوصي</span>
-                  <span className="text-sm font-black text-slate-700 dark:text-slate-200">{orphan.guardianPhone || "غير متوفر"}</span>
+                  <span className="text-sm font-black text-slate-700 dark:text-slate-200">{maskSensitiveText(orphan.guardianPhone, canViewSensitive, "phone", "غير متوفر")}</span>
                 </div>
                 <div className="bg-white/40 dark:bg-slate-800/40 p-3 rounded-2xl border border-white/60 dark:border-slate-700/60">
                   <span className="text-[10px] font-bold text-slate-400 block mb-1">السكن</span>
@@ -160,7 +189,7 @@ export function OrphanProfileModal({ orphan, onClose }: OrphanProfileModalProps)
                 {orphan.sponsorPhone && (
                   <div className="bg-white/50 dark:bg-slate-800/50 p-3 rounded-2xl border border-white/60 dark:border-slate-700/60">
                     <span className="text-[10px] font-bold text-slate-400 block mb-1">جوال الكفيل</span>
-                    <span className="text-sm font-black text-slate-700 dark:text-slate-200">{orphan.sponsorPhone}</span>
+                    <span className="text-sm font-black text-slate-700 dark:text-slate-200">{maskSensitiveText(orphan.sponsorPhone, canViewSensitive, "phone", "غير متوفر")}</span>
                   </div>
                 )}
                 {orphan.sponsorshipAmount && (
@@ -176,7 +205,16 @@ export function OrphanProfileModal({ orphan, onClose }: OrphanProfileModalProps)
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 block">الحساب البنكي</span>
                     <span className="text-sm font-black text-slate-700 dark:text-slate-200">
-                      {orphan.transferAccountName && `${orphan.transferAccountName} — `}{orphan.transferAccountNumber || "غير متوفر"}
+                      {canViewSensitive ? (
+                        <>
+                          {orphan.transferAccountName && `${orphan.transferAccountName} — `}
+                          {orphan.transferAccountNumber || "غير متوفر"}
+                        </>
+                      ) : (
+                        <>
+                          غير مصرح — {maskSensitiveText(orphan.transferAccountNumber, false, "account")}
+                        </>
+                      )}
                     </span>
                   </div>
                 </div>
