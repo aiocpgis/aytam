@@ -186,6 +186,12 @@ export function OrphanProfileModal({ orphan, onClose }: OrphanProfileModalProps)
                     <span className="text-sm font-black text-slate-700 dark:text-slate-200">{orphan.sponsorName}</span>
                   </div>
                 )}
+                {orphan.sponsorCountry && (
+                  <div className="bg-white/50 dark:bg-slate-800/50 p-3 rounded-2xl border border-white/60 dark:border-slate-700/60">
+                    <span className="text-[10px] font-bold text-slate-400 block mb-1">دولة الكفيل</span>
+                    <span className="text-sm font-black text-slate-700 dark:text-slate-200">{orphan.sponsorCountry}</span>
+                  </div>
+                )}
                 {orphan.sponsorPhone && (
                   <div className="bg-white/50 dark:bg-slate-800/50 p-3 rounded-2xl border border-white/60 dark:border-slate-700/60">
                     <span className="text-[10px] font-bold text-slate-400 block mb-1">جوال الكفيل</span>

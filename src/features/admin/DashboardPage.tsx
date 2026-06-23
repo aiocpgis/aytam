@@ -155,6 +155,7 @@ export function DashboardPage() {
         record.guardianName,
         record.governorateCity,
         record.sponsorName,
+        record.sponsorCountry,
         record.guardianPhone,
       ].join(" ")).includes(normalizedSearch);
 
@@ -222,6 +223,7 @@ export function DashboardPage() {
           "صلة القرابة": record.guardianRelation || "غير محدد",
           "رقم جوال الوصي": canViewSensitive ? (record.guardianPhone || "-") : maskPhone(record.guardianPhone),
           "اسم الكفيل": record.sponsorName || "بانتظار كافل",
+          "دولة الكفيل": record.sponsorCountry || "-",
           "رقم جوال الكفيل": canViewSensitive ? (record.sponsorPhone || "-") : maskPhone(record.sponsorPhone),
           "قيمة الكفالة الشهرية": record.sponsorshipAmount ?? "-",
           "العملة": record.sponsorshipAmount ? record.currency : "",

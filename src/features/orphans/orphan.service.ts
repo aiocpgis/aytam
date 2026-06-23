@@ -9,6 +9,7 @@ type DbOrphanRecord = {
   child_full_name?: string;
   birth_date?: string | null;
   sponsor_name?: string;
+  sponsor_country?: string;
   sponsorship_amount?: number | null;
   sponsor_phone?: string;
   guardian_name?: string;
@@ -37,6 +38,7 @@ function fromDbRecord(record: DbOrphanRecord): OrphanRecord {
     childFullName: record.child_full_name ?? "",
     birthDate: record.birth_date ?? "",
     sponsorName: record.sponsor_name ?? "",
+    sponsorCountry: record.sponsor_country ?? "",
     sponsorshipAmount: record.sponsorship_amount ?? null,
     sponsorPhone: record.sponsor_phone ?? "",
     guardianName: record.guardian_name ?? "",
@@ -66,6 +68,7 @@ function toDbRecord(record: Partial<Omit<OrphanRecord, "id" | "createdAt" | "upd
   if (record.childFullName !== undefined) dbRecord.child_full_name = record.childFullName;
   if (record.birthDate !== undefined) dbRecord.birth_date = record.birthDate || null;
   if (record.sponsorName !== undefined) dbRecord.sponsor_name = record.sponsorName;
+  if (record.sponsorCountry !== undefined) dbRecord.sponsor_country = record.sponsorCountry;
   if (record.sponsorshipAmount !== undefined) dbRecord.sponsorship_amount = record.sponsorshipAmount;
   if (record.sponsorPhone !== undefined) dbRecord.sponsor_phone = record.sponsorPhone;
   if (record.guardianName !== undefined) dbRecord.guardian_name = record.guardianName;

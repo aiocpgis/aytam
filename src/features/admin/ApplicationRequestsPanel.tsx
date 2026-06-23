@@ -242,7 +242,10 @@ export function ApplicationRequestsPanel() {
                     <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />حساب الاستلام: {application.transferAccountName || "-"}</span>
                     <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-blue-500" />جوال الحساب: {application.transferAccountNumber || "-"}</span>
                     {application.sponsorshipStatus === "مكفول" && (
-                      <span className="flex items-center gap-1.5 md:col-span-2"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />اسم الكفيل: {application.sponsorName || "-"}</span>
+                      <>
+                        <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />اسم الكفيل: {application.sponsorName || "-"}</span>
+                        <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />دولة الكفيل: {application.sponsorCountry || "-"}</span>
+                      </>
                     )}
                     {application.notes?.trim() && (
                       <span className="flex items-start gap-1.5 md:col-span-2 leading-6"><span className="mt-2 h-1.5 w-1.5 rounded-full bg-slate-400" />ملاحظات: {application.notes}</span>

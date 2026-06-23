@@ -73,6 +73,7 @@ export async function createPublicApplication(
       child_full_name: record.childFullName.trim(),
       birth_date: record.birthDate || null,
       sponsor_name: record.sponsorName.trim(),
+      sponsor_country: record.sponsorCountry.trim(),
       sponsorship_amount: record.sponsorshipAmount,
       sponsor_phone: record.sponsorPhone.trim(),
       guardian_name: record.guardianName.trim(),

@@ -131,7 +131,7 @@ export function OrphansTable({ records, onEdit, onDelete }: OrphansTableProps) {
                     {record.sponsorName ? (
                       <span className="inline-flex items-center gap-1 text-slate-800">
                         <Heart className="h-3.5 w-3.5 text-rose-500 fill-rose-400" />
-                        {record.sponsorName}
+                        {record.sponsorName} {record.sponsorCountry && `(${record.sponsorCountry})`}
                       </span>
                     ) : (
                       "-"
@@ -238,7 +238,7 @@ export function OrphansTable({ records, onEdit, onDelete }: OrphansTableProps) {
                 <span className="text-[10px] text-slate-400 font-bold block">الكفيل</span>
                 <span className="inline-flex items-center gap-1 text-slate-800">
                   <Heart className="h-3.5 w-3.5 text-rose-500 fill-rose-400" />
-                  {record.sponsorName || "بانتظار كافل"}
+                  {record.sponsorName || "بانتظار كافل"}{record.sponsorName && record.sponsorCountry && ` (${record.sponsorCountry})`}
                 </span>
               </div>
               <div className="space-y-1">

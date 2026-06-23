@@ -1,8 +1,12 @@
--- =========================================================================
--- Supabase RPC Transactions and Legacy RLS cleanup
--- =========================================================================
+-- Migration: Add sponsor_country column to orphans and orphan_applications, and update approve_orphan_application_v1
 
--- 1. Atomic Transaction Function for approving an application and creating an orphan record.
+-- 1. Add column to public.orphans if not exists
+alter table public.orphans add column if not exists sponsor_country text not null default '';
+
+-- 2. Add column to public.orphan_applications if not exists
+alter table public.orphan_applications add column if not exists sponsor_country text not null default '';
+
+-- 3. Update the approve_orphan_application_v1 function to support the new column
 CREATE OR REPLACE FUNCTION public.approve_orphan_application_v1(
   app_id uuid,
   orphan_data jsonb
@@ -64,47 +68,3 @@ BEGIN
   WHERE id = app_id;
 END;
 $$;
-
--- 2. Atomic Transaction Function for updating user roles and overrides without wiping permissions.
-CREATE OR REPLACE FUNCTION public.update_user_roles_and_permissions_v1(
-  target_user_id uuid,
-  role_ids text[],
-  permission_overrides jsonb
-)
-RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $$
-DECLARE
-  override_record record;
-  role_uuid_ids uuid[];
-BEGIN
-  -- Safely cast text array of IDs to uuid array
-  role_uuid_ids := role_ids::uuid[];
-
-  -- A. Update User Roles
-  DELETE FROM public.user_roles WHERE user_id = target_user_id;
-  IF array_length(role_uuid_ids, 1) > 0 THEN
-    INSERT INTO public.user_roles (user_id, role_id)
-    SELECT target_user_id, unnest(role_uuid_ids);
-  END IF;
-
-  -- B. Update Permission Overrides
-  DELETE FROM public.user_permissions WHERE user_id = target_user_id;
-  IF jsonb_array_length(permission_overrides) > 0 THEN
-    FOR override_record IN
-      SELECT * FROM jsonb_to_recordset(permission_overrides) AS x(permission_id uuid, effect text)
-    LOOP
-      INSERT INTO public.user_permissions (user_id, permission_id, effect)
-      VALUES (target_user_id, override_record.permission_id, override_record.effect);
-    END LOOP;
-  END IF;
-END;
-$$;
-
--- 3. Clean up legacy admin policies that conflict with fine-grained RBAC permissions.
-DROP POLICY IF EXISTS "orphans_admin_select" ON public.orphans;
-DROP POLICY IF EXISTS "orphans_admin_insert" ON public.orphans;
-DROP POLICY IF EXISTS "orphans_admin_update" ON public.orphans;
-DROP POLICY IF EXISTS "orphans_admin_delete" ON public.orphans;
-
-DROP POLICY IF EXISTS "orphan_applications_admin_select" ON public.orphan_applications;
-DROP POLICY IF EXISTS "orphan_applications_admin_update" ON public.orphan_applications;
-DROP POLICY IF EXISTS "orphan_applications_admin_delete" ON public.orphan_applications;

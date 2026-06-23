@@ -22,6 +22,7 @@ export interface OrphanRecord {
   childFullName: string;
   birthDate: string;
   sponsorName: string;
+  sponsorCountry: string;
   sponsorshipAmount: number | null;
   sponsorPhone: string;
   guardianName: string;
@@ -50,6 +51,7 @@ export interface OrphanFormValues {
   childFullName: string;
   birthDate: string;
   sponsorName: string;
+  sponsorCountry: string;
   sponsorshipAmount: string;
   sponsorPhone: string;
   guardianName: string;
@@ -71,6 +73,7 @@ export interface ExcelOrphanRow {
   "اسم الطفل رباعي"?: string;
   "تاريخ الميلاد"?: string | number | Date;
   "الكفيل"?: string;
+  "دولة الكفيل"?: string;
   "قيمة الكفالة"?: number | string;
   "رقم جوال الكفيل"?: string | number;
   "الوصي عليه"?: string;

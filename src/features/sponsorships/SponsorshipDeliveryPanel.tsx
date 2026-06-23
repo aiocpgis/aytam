@@ -438,7 +438,7 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
                       </span>
                     </div>
                     <div className="grid gap-x-5 gap-y-1 text-xs font-bold text-slate-500 md:grid-cols-3">
-                      <span>الكفيل: <b className="text-slate-800">{record.sponsorName || "-"}</b></span>
+                      <span>الكفيل: <b className="text-slate-800">{record.sponsorName || "-"}{record.sponsorName && record.sponsorCountry && ` (${record.sponsorCountry})`}</b></span>
                       <span>قيمة الشهر: <b className="text-slate-800">{formatAmount(draft.sponsorshipAmount, draft.currency)}</b></span>
                       <span>الوصي: <b className="text-slate-800">{record.guardianName || "-"}</b></span>
                     </div>

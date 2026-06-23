@@ -11,6 +11,7 @@ type DbApplicationRecord = {
   child_full_name?: string;
   birth_date?: string | null;
   sponsor_name?: string;
+  sponsor_country?: string;
   sponsorship_amount?: number | null;
   sponsor_phone?: string;
   guardian_name?: string;
@@ -40,6 +41,7 @@ function fromDbApplication(record: DbApplicationRecord): OrphanRecord {
     childFullName: record.child_full_name ?? "",
     birthDate: record.birth_date ?? "",
     sponsorName: record.sponsor_name ?? "",
+    sponsorCountry: record.sponsor_country ?? "",
     sponsorshipAmount: record.sponsorship_amount ?? null,
     sponsorPhone: record.sponsor_phone ?? "",
     guardianName: record.guardian_name ?? "",
@@ -68,6 +70,7 @@ function toDbOrphan(record: OrphanRecord) {
     child_full_name: record.childFullName,
     birth_date: record.birthDate || null,
     sponsor_name: record.sponsorName || "",
+    sponsor_country: record.sponsorCountry || "",
     sponsorship_amount: record.sponsorshipAmount,
     sponsor_phone: record.sponsorPhone || "",
     guardian_name: record.guardianName || "",

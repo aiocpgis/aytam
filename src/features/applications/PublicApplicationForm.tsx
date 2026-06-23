@@ -54,6 +54,7 @@ export function PublicApplicationForm() {
   const [transferAccountNumber, setTransferAccountNumber] = useState("");
   const [sponsorshipStatus, setSponsorshipStatus] = useState<PublicSponsorshipStatus>("غير مكفول");
   const [sponsorName, setSponsorName] = useState("");
+  const [sponsorCountry, setSponsorCountry] = useState("");
   const [notes, setNotes] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -116,6 +117,11 @@ export function PublicApplicationForm() {
         setMessage("يرجى إدخال اسم الكفيل عند اختيار حالة مكفول.");
         return false;
       }
+
+      if (sponsorshipStatus === "مكفول" && sponsorCountry.trim().length < 2) {
+        setMessage("يرجى إدخال دولة الكفيل عند اختيار حالة مكفول.");
+        return false;
+      }
     }
 
     return true;
@@ -136,7 +142,10 @@ export function PublicApplicationForm() {
 
   const handleSponsorshipStatusChange = (value: PublicSponsorshipStatus) => {
     setSponsorshipStatus(value);
-    if (value === "غير مكفول") setSponsorName("");
+    if (value === "غير مكفول") {
+      setSponsorName("");
+      setSponsorCountry("");
+    }
   };
 
   const handleFileChange = (newFiles: File[]) => {
@@ -205,6 +214,7 @@ export function PublicApplicationForm() {
           childFullName,
           birthDate,
           sponsorName: sponsorshipStatus === "مكفول" ? sponsorName : "",
+          sponsorCountry: sponsorshipStatus === "مكفول" ? sponsorCountry : "",
           sponsorshipAmount: null,
           sponsorPhone: "",
           guardianName,
@@ -247,6 +257,7 @@ export function PublicApplicationForm() {
     setTransferAccountNumber("");
     setSponsorshipStatus("غير مكفول");
     setSponsorName("");
+    setSponsorCountry("");
     setNotes("");
     setFiles([]);
     setUploadProgress(0);
@@ -495,10 +506,16 @@ export function PublicApplicationForm() {
                       </div>
 
                       {sponsorshipStatus === "مكفول" && (
-                        <div>
-                          <label className="mb-2 block text-xs font-black text-slate-700">اسم الكفيل <span className="text-rose-500">*</span></label>
-                          <input className="glass-input" value={sponsorName} onChange={(e) => setSponsorName(e.target.value)} placeholder="اسم الكفيل الحالي" />
-                        </div>
+                        <>
+                          <div>
+                            <label className="mb-2 block text-xs font-black text-slate-700">اسم الكفيل <span className="text-rose-500">*</span></label>
+                            <input className="glass-input" value={sponsorName} onChange={(e) => setSponsorName(e.target.value)} placeholder="اسم الكفيل الحالي" />
+                          </div>
+                          <div>
+                            <label className="mb-2 block text-xs font-black text-slate-700">دولة الكفيل <span className="text-rose-500">*</span></label>
+                            <input className="glass-input" value={sponsorCountry} onChange={(e) => setSponsorCountry(e.target.value)} placeholder="دولة إقامة الكفيل" />
+                          </div>
+                        </>
                       )}
                     </div>
                   </div>
@@ -530,7 +547,7 @@ export function PublicApplicationForm() {
                       <div><span className="text-slate-400 font-bold block mb-0.5">الوصي والقرابة:</span> {guardianName} ({guardianRelation})</div>
                       <div><span className="text-slate-400 font-bold block mb-0.5">الهاتف والمدينة:</span> {guardianPhone} ({governorateCity})</div>
                       <div><span className="text-slate-400 font-bold block mb-0.5">حساب الاستلام:</span> {transferAccountName} — {transferAccountNumber}</div>
-                      <div><span className="text-slate-400 font-bold block mb-0.5">حالة الكفالة:</span> {sponsorshipStatus}{sponsorshipStatus === "مكفول" && sponsorName ? ` — ${sponsorName}` : ""}</div>
+                      <div><span className="text-slate-400 font-bold block mb-0.5">حالة الكفالة:</span> {sponsorshipStatus}{sponsorshipStatus === "مكفول" && sponsorName ? ` — ${sponsorName}` : ""}{sponsorshipStatus === "مكفول" && sponsorCountry ? ` (${sponsorCountry})` : ""}</div>
                       <div className="md:col-span-2"><span className="text-slate-400 font-bold block mb-0.5">العنوان بالتفصيل:</span> {address}</div>
                       {notes.trim() && <div className="md:col-span-2"><span className="text-slate-400 font-bold block mb-0.5">الملاحظات:</span> {notes}</div>}
                     </div>

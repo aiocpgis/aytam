@@ -16,6 +16,7 @@ function recordToFormValues(record: OrphanRecord): OrphanFormValues {
     childFullName: record.childFullName ?? "",
     birthDate: record.birthDate ?? "",
     sponsorName: record.sponsorName ?? "",
+    sponsorCountry: record.sponsorCountry ?? "",
     sponsorshipAmount: record.sponsorshipAmount ? String(record.sponsorshipAmount) : "",
     sponsorPhone: record.sponsorPhone ?? "",
     guardianName: record.guardianName ?? "",
@@ -227,6 +228,17 @@ export function OrphanForm({ selected, onSubmit, onCancel }: OrphanFormProps) {
             placeholder="يترك فارغاً إذا كان بانتظار كفالة" 
             value={values.sponsorName} 
             onChange={(e) => updateField("sponsorName", e.target.value)} 
+          />
+        </div>
+
+        {/* Sponsor Country */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-extrabold text-slate-600">دولة الكفيل</label>
+          <input 
+            className="glass-input" 
+            placeholder="دولة إقامة الكفيل إن وجد" 
+            value={values.sponsorCountry} 
+            onChange={(e) => updateField("sponsorCountry", e.target.value)} 
           />
         </div>
 
