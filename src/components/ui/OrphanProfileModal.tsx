@@ -1,6 +1,8 @@
 import { Baby, Calendar, FileText, Heart, MapPin, User, X, Shield, Landmark } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { OrphanRecord } from "../../types/orphan.types";
 import { usePermissions } from "../../hooks/usePermissions";
+import { getOrphanPhotoSignedUrl } from "../../features/orphans/orphanPhoto.service";
 
 interface OrphanProfileModalProps {
   orphan: OrphanRecord;
@@ -42,6 +44,15 @@ function formatDate(dateValue: unknown) {
 export function OrphanProfileModal({ orphan, onClose }: OrphanProfileModalProps) {
   const { hasPermission } = usePermissions();
   const canViewSensitive = hasPermission("orphans.view_sensitive");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (orphan.photo_path) {
+      getOrphanPhotoSignedUrl(orphan.photo_path).then((url) => {
+        if (url) setPhotoUrl(url);
+      });
+    }
+  }, [orphan.photo_path]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
@@ -70,8 +81,12 @@ export function OrphanProfileModal({ orphan, onClose }: OrphanProfileModalProps)
         <div className="p-6 space-y-8">
           {/* Header Profile Info */}
           <div className="flex flex-col md:flex-row items-center gap-6 bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-slate-800/50 dark:to-slate-700/50 p-6 rounded-3xl border border-white/60 dark:border-slate-700/60 shadow-sm">
-            <div className="w-24 h-24 shrink-0 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center border-4 border-white dark:border-slate-700 shadow-md">
-              <User className="h-10 w-10 text-indigo-400" />
+            <div className="w-24 h-24 shrink-0 overflow-hidden rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center border-4 border-white dark:border-slate-700 shadow-md">
+              {photoUrl ? (
+                <img src={photoUrl} alt={orphan.childFullName} className="w-full h-full object-cover" />
+              ) : (
+                <User className="h-10 w-10 text-indigo-400" />
+              )}
             </div>
             <div className="text-center md:text-right flex-1">
               <h3 className="text-2xl font-black text-slate-900 dark:text-white">{orphan.childFullName}</h3>
