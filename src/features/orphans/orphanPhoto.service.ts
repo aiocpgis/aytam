@@ -27,11 +27,24 @@ export function validateOrphanPhoto(file: File): { valid: boolean; error?: strin
  * Falls back to `photo_path` (single string) for backward compatibility.
  */
 export async function getOrphanPhotoPaths(orphanId: string): Promise<string[]> {
-  const { data, error } = await supabase
+  // First attempt: select both photo_path and photo_paths
+  let { data, error } = await supabase
     .from("orphans")
     .select("photo_path, photo_paths")
     .eq("id", orphanId)
     .maybeSingle();
+
+  // If error is about missing column, fallback to selecting only photo_path
+  if (error && error.code === 'PGRST204') {
+    const fallback = await supabase
+      .from("orphans")
+      .select("photo_path")
+      .eq("id", orphanId)
+      .maybeSingle();
+      
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error || !data) {
     console.warn("[PhotoService] could not fetch photo paths:", error?.message);
@@ -39,7 +52,7 @@ export async function getOrphanPhotoPaths(orphanId: string): Promise<string[]> {
   }
 
   // photo_paths is a JSONB array — use it if available
-  if (Array.isArray(data.photo_paths) && data.photo_paths.length > 0) {
+  if (data.photo_paths && Array.isArray(data.photo_paths) && data.photo_paths.length > 0) {
     return data.photo_paths as string[];
   }
 
@@ -79,7 +92,7 @@ export async function uploadOrphanPhoto(orphanId: string, file: File): Promise<s
   const existing = await getOrphanPhotoPaths(orphanId);
   const merged = [...new Set([...existing, newPath])]; // deduplicate
 
-  const { error: updateError } = await supabase
+  let { error: updateError } = await supabase
     .from("orphans")
     .update({
       photo_path: newPath,           // keep latest as primary
@@ -87,6 +100,15 @@ export async function uploadOrphanPhoto(orphanId: string, file: File): Promise<s
       photo_uploaded_at: new Date().toISOString(),
     })
     .eq("id", orphanId);
+
+  // If column doesn't exist, fallback to updating only photo_path
+  if (updateError && updateError.code === 'PGRST204') {
+    const fallbackUpdate = await supabase
+      .from("orphans")
+      .update({ photo_path: newPath })
+      .eq("id", orphanId);
+    updateError = fallbackUpdate.error;
+  }
 
   if (updateError) {
     console.error("Update DB error:", updateError);
@@ -137,7 +159,7 @@ export async function deleteOrphanPhoto(
     const existing = await getOrphanPhotoPaths(orphanId);
     const updated = existing.filter((p) => p !== photoPath);
 
-    await supabase
+    let { error: updateError } = await supabase
       .from("orphans")
       .update({
         photo_paths: updated,
@@ -146,5 +168,15 @@ export async function deleteOrphanPhoto(
         photo_uploaded_at: updated.length > 0 ? new Date().toISOString() : null,
       })
       .eq("id", orphanId);
+
+    // If column doesn't exist, fallback to updating only photo_path
+    if (updateError && updateError.code === 'PGRST204') {
+      await supabase
+        .from("orphans")
+        .update({
+          photo_path: updated.length > 0 ? updated[updated.length - 1] : null,
+        })
+        .eq("id", orphanId);
+    }
   }
 }
