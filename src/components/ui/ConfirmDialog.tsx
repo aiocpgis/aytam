@@ -1,4 +1,6 @@
 import { AlertTriangle, CheckCircle, HelpCircle, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -23,7 +25,13 @@ export function ConfirmDialog({
   tone = "danger",
   isSubmitting = false,
 }: ConfirmDialogProps) {
-  if (!isOpen) return null;
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!isOpen || !mounted) return null;
 
   const toneConfig = {
     danger: {
@@ -50,8 +58,8 @@ export function ConfirmDialog({
 
   const currentTone = toneConfig[tone];
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+  const dialogContent = (
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-slate-900/50 backdrop-blur-xl transition-opacity duration-300"
@@ -93,4 +101,6 @@ export function ConfirmDialog({
       </div>
     </div>
   );
+
+  return createPortal(dialogContent, document.body);
 }
