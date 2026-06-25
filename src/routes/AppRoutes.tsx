@@ -1,11 +1,15 @@
+import { lazy, Suspense } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import { PublicLayout } from "../components/layout/PublicLayout";
 import { AdminLayout } from "../components/layout/AdminLayout";
-import { PublicApplicationForm } from "../features/applications/PublicApplicationForm";
-import { LoginPage } from "../features/admin/LoginPage";
-import { DashboardPage } from "../features/admin/DashboardPage";
 import { ProtectedRoute } from "./ProtectedRoute";
 import { MaintenanceGuard } from "../components/security/MaintenanceGuard";
+import { PageLoader } from "../components/ui/PageLoader";
+
+const PublicApplicationForm = lazy(() => import("../features/applications/PublicApplicationForm").then(module => ({ default: module.PublicApplicationForm })));
+const LoginPage = lazy(() => import("../features/admin/LoginPage").then(module => ({ default: module.LoginPage })));
+const DashboardPage = lazy(() => import("../features/admin/DashboardPage").then(module => ({ default: module.DashboardPage })));
+
 
 export const router = createBrowserRouter(
   [
@@ -17,12 +21,23 @@ export const router = createBrowserRouter(
         </MaintenanceGuard>
       ),
       children: [
-        { index: true, element: <PublicApplicationForm /> },
+        {
+          index: true,
+          element: (
+            <Suspense fallback={<PageLoader text="جاري تحميل نموذج التسجيل..." />}>
+              <PublicApplicationForm />
+            </Suspense>
+          ),
+        },
       ],
     },
     {
       path: "/admin/login",
-      element: <LoginPage />,
+      element: (
+        <Suspense fallback={<PageLoader text="جاري تحميل صفحة الدخول..." />}>
+          <LoginPage />
+        </Suspense>
+      ),
     },
     {
       path: "/admin",
@@ -34,7 +49,14 @@ export const router = createBrowserRouter(
         </ProtectedRoute>
       ),
       children: [
-        { index: true, element: <DashboardPage /> },
+        {
+          index: true,
+          element: (
+            <Suspense fallback={<PageLoader text="جاري تحميل لوحة التحكم..." />}>
+              <DashboardPage />
+            </Suspense>
+          ),
+        },
       ],
     },
   ],

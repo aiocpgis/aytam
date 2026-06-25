@@ -183,8 +183,7 @@ export function SponsorshipDeliveryPanel({ records }: SponsorshipDeliveryPanelPr
     setDrafts((current) => ({
       ...current,
       [orphanId]: {
-        ...deliveryToDraft(),
-        ...current[orphanId],
+        ...current[orphanId] ?? deliveryToDraft(undefined, sponsoredRecords.find((r) => r.id === orphanId)),
         ...patch,
       },
     }));

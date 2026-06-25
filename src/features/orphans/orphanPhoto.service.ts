@@ -28,11 +28,17 @@ export function validateOrphanPhoto(file: File): { valid: boolean; error?: strin
  */
 export async function getOrphanPhotoPaths(orphanId: string): Promise<string[]> {
   // First attempt: select both photo_path and photo_paths
-  let { data, error } = await supabase
+  let data: { photo_path: any; photo_paths?: any } | null = null;
+  let error: any = null;
+
+  const result = await supabase
     .from("orphans")
     .select("photo_path, photo_paths")
     .eq("id", orphanId)
     .maybeSingle();
+
+  data = result.data;
+  error = result.error;
 
   // If error is about missing column, fallback to selecting only photo_path
   if (error && error.code === 'PGRST204') {

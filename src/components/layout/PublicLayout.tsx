@@ -75,12 +75,7 @@ export function PublicLayout() {
             </div>
           </div>
           
-          <div className="mt-8 pt-6 border-t border-slate-200/40 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-bold text-slate-400">
-            <p>© {new Date().getFullYear()} منصة رِفْق لرعاية الأيتام. جميع الحقوق محفوظة.</p>
-            <p className="flex items-center gap-1">
-              صُنع بكل <Heart className="h-3 w-3 text-rose-500 fill-rose-500" /> لرعاية أطفالنا الأيتام وتمكينهم.
-            </p>
-          </div>
+          <div className="mt-8 pt-6 border-t border-slate-200/40" />
         </div>
       </footer>
     </div>

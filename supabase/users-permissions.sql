@@ -95,8 +95,7 @@ INSERT INTO public.permissions (key, label, category, description) VALUES
 ('security.read_only_mode', 'وضع القراءة فقط', 'Security', 'منع أي تعديل أو حفظ في الواجهة'),
 ('security.disable_export', 'منع التصدير', 'Security', 'منع أزرار التصدير والإكسيل'),
 ('security.disable_print', 'منع الطباعة', 'Security', 'منع اختصارات وأزرار الطباعة'),
-('security.disable_copy', 'منع النسخ', 'Security', 'تفعيل تعطيل زر الفأرة الأيمن والتحديد'),
-('security.enable_watermark', 'تفعيل العلامة المائية', 'Security', 'عرض اسم المستخدم كعلامة مائية')
+('security.disable_copy', 'منع النسخ', 'Security', 'تفعيل تعطيل زر الفأرة الأيمن والتحديد')
 ON CONFLICT (key) DO NOTHING;
 
 -- 5. Role Permissions

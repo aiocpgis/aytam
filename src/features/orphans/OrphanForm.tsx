@@ -1,9 +1,12 @@
-import { FormEvent, useEffect, useState } from "react";
-import type { OrphanFormValues, OrphanRecord } from "../../types/orphan.types";
+import { FormEvent, useEffect, useState, useRef } from "react";
+import type { OrphanFormValues, OrphanRecord, UploadedDocument } from "../../types/orphan.types";
 import { defaultOrphanFormValues, formValuesToOrphanRecord } from "./orphan.mapper";
-import { AlertCircle, User, Users, Heart, CreditCard } from "lucide-react";
+import { AlertCircle, User, Users, Heart, CreditCard, FileText, X, Plus, Loader2 } from "lucide-react";
+import { sanitizeInput } from "../../lib/utils";
 import { OrphanPhotoUploader } from "./OrphanPhotoUploader";
 import { usePermissions } from "../../hooks/usePermissions";
+import { createSignedDocumentUrl } from "../applications/applicationRequests.service";
+import { uploadOrphanDocument, deleteOrphanDocument } from "./orphan.service";
 
 interface OrphanFormProps {
   selected?: OrphanRecord | null;
@@ -44,6 +47,103 @@ const tabs = [
 
 type TabId = (typeof tabs)[number]["id"];
 
+interface DocumentThumbnailProps {
+  document: { name: string; path: string };
+  onDelete?: (path: string) => void;
+  isDeleting?: boolean;
+}
+
+function DocumentThumbnail({ document, onDelete, isDeleting }: DocumentThumbnailProps) {
+  const { hasPermission } = usePermissions();
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
+
+  const isImage = /\.(jpe?g|png|webp|gif|svg)$/i.test(document.name || document.path);
+
+  useEffect(() => {
+    if (isImage && hasPermission("orphans.view_documents")) {
+      setIsLoading(true);
+      createSignedDocumentUrl(document.path)
+        .then((url) => setThumbnailUrl(url))
+        .catch((err) => console.error("Failed to load thumbnail", err))
+        .finally(() => setIsLoading(false));
+    }
+  }, [document.path, isImage, hasPermission]);
+
+  async function handleOpen() {
+    if (!hasPermission("orphans.view_documents")) {
+      alert("لا تملك الصلاحية لعرض المستندات.");
+      return;
+    }
+    try {
+      setIsOpening(true);
+      const url = thumbnailUrl || await createSignedDocumentUrl(document.path);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      console.error(error);
+      alert("تعذر فتح الملف.");
+    } finally {
+      setIsOpening(false);
+    }
+  }
+
+  const renderContent = () => {
+    if (isImage) {
+      if (thumbnailUrl) {
+        return <img src={thumbnailUrl} alt={document.name} className="h-full w-full object-cover transition duration-300 group-hover:scale-110" />;
+      }
+      if (isLoading) {
+        return (
+          <div className="flex h-full w-full items-center justify-center">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          </div>
+        );
+      }
+      return (
+        <div className="flex h-full w-full items-center justify-center text-slate-400">
+          <FileText className="h-6 w-6" />
+        </div>
+      );
+    }
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-slate-500 group-hover:text-blue-500 transition-colors">
+        <FileText className="h-6 w-6" />
+        <span className="mt-1 max-w-[50px] truncate text-[9px] font-extrabold">{document.name}</span>
+      </div>
+    );
+  };
+
+  return (
+    <div className="relative group shrink-0 animate-in fade-in">
+      <button
+        type="button"
+        onClick={handleOpen}
+        disabled={isOpening}
+        className="relative block h-16 w-16 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 transition hover:border-blue-400 hover:shadow-md"
+      >
+        {renderContent()}
+      </button>
+      
+      {onDelete && (
+        <button
+          type="button"
+          onClick={() => onDelete(document.path)}
+          disabled={isDeleting}
+          className="absolute -top-1.5 -left-1.5 h-5 w-5 bg-rose-500 hover:bg-rose-600 text-white rounded-full flex items-center justify-center shadow-md border border-white hover:scale-105 transition-transform"
+          title="حذف المستند"
+        >
+          {isDeleting ? (
+            <span className="h-2.5 w-2.5 animate-spin rounded-full border border-white border-t-transparent" />
+          ) : (
+            <X className="h-3 w-3" />
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function OrphanForm({ selected, onSubmit, onCancel }: OrphanFormProps) {
   const [values, setValues] = useState<OrphanFormValues>(defaultOrphanFormValues());
   const [activeTab, setActiveTab] = useState<TabId>("personal");
@@ -52,15 +152,68 @@ export function OrphanForm({ selected, onSubmit, onCancel }: OrphanFormProps) {
   const { hasPermission } = usePermissions();
   const canViewSensitive = hasPermission("orphans.view_sensitive");
 
+  const [localDocuments, setLocalDocuments] = useState<UploadedDocument[]>([]);
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [deletingDocPath, setDeletingDocPath] = useState<string | null>(null);
+  const docInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     setValues(selected ? recordToFormValues(selected) : defaultOrphanFormValues());
+    if (selected) {
+      setLocalDocuments(selected.documents || []);
+    } else {
+      setLocalDocuments([]);
+    }
     setError(null);
     setActiveTab("personal");
   }, [selected]);
 
+  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    if (!selected?.id) {
+      setError("يرجى حفظ بيانات اليتيم الأساسية أولاً قبل رفع المستندات.");
+      return;
+    }
+
+    setIsUploadingDoc(true);
+    setError(null);
+    try {
+      const uploadedList: UploadedDocument[] = [];
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const newDoc = await uploadOrphanDocument(selected.id, file);
+        uploadedList.push(newDoc);
+      }
+      setLocalDocuments((prev) => [...prev, ...uploadedList]);
+    } catch (err: any) {
+      console.error(err);
+      setError("فشل رفع بعض أو كل المستندات. يرجى التحقق من حجم الملف وصيغته.");
+    } finally {
+      setIsUploadingDoc(false);
+      if (docInputRef.current) docInputRef.current.value = "";
+    }
+  };
+
+  const handleDocDelete = async (path: string) => {
+    if (!selected?.id) return;
+    setDeletingDocPath(path);
+    setError(null);
+    try {
+      await deleteOrphanDocument(selected.id, path);
+      setLocalDocuments((prev) => prev.filter((doc) => doc.path !== path));
+    } catch (err: any) {
+      console.error(err);
+      setError("فشل حذف المستند.");
+    } finally {
+      setDeletingDocPath(null);
+    }
+  };
+
   function updateField<K extends keyof OrphanFormValues>(key: K, value: OrphanFormValues[K]) {
     setError(null);
-    setValues((curr) => ({ ...curr, [key]: value }));
+    const sanitized = typeof value === "string" ? sanitizeInput(value) : value;
+    setValues((curr) => ({ ...curr, [key]: sanitized }));
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -75,8 +228,9 @@ export function OrphanForm({ selected, onSubmit, onCancel }: OrphanFormProps) {
     try {
       setIsSaving(true);
       setError(null);
-      const record = formValuesToOrphanRecord(values) as ReturnType<typeof formValuesToOrphanRecord> & { id?: string };
+      const record = formValuesToOrphanRecord(values) as ReturnType<typeof formValuesToOrphanRecord> & { id?: string; documents?: any };
       if (selected?.id) record.id = selected.id;
+      record.documents = localDocuments;
       await onSubmit(record);
       if (!selected) setValues(defaultOrphanFormValues());
     } catch (err) {
@@ -260,6 +414,44 @@ export function OrphanForm({ selected, onSubmit, onCancel }: OrphanFormProps) {
                 />
               </div>
             </div>
+
+            {/* Attached documents */}
+            {selected?.id && (
+              <div className="mt-5 pt-5 border-t border-slate-100/80">
+                <label className="text-xs font-extrabold text-slate-750 block mb-3 flex items-center gap-1.5">
+                  <FileText className="h-4 w-4 text-blue-500" />
+                  المستندات والأوراق الثبوتية المرفقة
+                </label>
+                <div className="flex flex-wrap gap-2.5 items-center">
+                  {localDocuments.map((doc) => (
+                    <DocumentThumbnail
+                      key={doc.path}
+                      document={doc}
+                      onDelete={handleDocDelete}
+                      isDeleting={deletingDocPath === doc.path}
+                    />
+                  ))}
+                  
+                  {/* Upload button */}
+                  <button
+                    type="button"
+                    title="إضافة مستند جديد"
+                    onClick={() => docInputRef.current?.click()}
+                    disabled={isUploadingDoc}
+                    className="flex h-16 w-16 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-blue-200 bg-blue-50/40 text-blue-500 transition hover:border-blue-400 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isUploadingDoc ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <>
+                        <Plus className="h-5 w-5" />
+                        <span className="text-[9px] font-extrabold">إضافة مستند</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -423,6 +615,43 @@ export function OrphanForm({ selected, onSubmit, onCancel }: OrphanFormProps) {
                 <option>مكتمل</option>
               </select>
             </div>
+            {/* Attached documents */}
+            {selected?.id && (
+              <div className="mt-5 pt-5 border-t border-slate-100/80 sm:col-span-2 md:col-span-3">
+                <label className="text-xs font-extrabold text-slate-700 block mb-3 flex items-center gap-1.5">
+                  <FileText className="h-4 w-4 text-emerald-500" />
+                  المستندات والأوراق الثبوتية المرفقة
+                </label>
+                <div className="flex flex-wrap gap-2.5 items-center">
+                  {localDocuments.map((doc) => (
+                    <DocumentThumbnail
+                      key={doc.path}
+                      document={doc}
+                      onDelete={handleDocDelete}
+                      isDeleting={deletingDocPath === doc.path}
+                    />
+                  ))}
+                  
+                  {/* Upload button */}
+                  <button
+                    type="button"
+                    title="إضافة مستند جديد"
+                    onClick={() => docInputRef.current?.click()}
+                    disabled={isUploadingDoc}
+                    className="flex h-16 w-16 shrink-0 flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-emerald-250 bg-emerald-50/40 text-emerald-600 transition hover:border-emerald-400 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isUploadingDoc ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <>
+                        <Plus className="h-5 w-5" />
+                        <span className="text-[9px] font-extrabold">إضافة مستند</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -458,6 +687,14 @@ export function OrphanForm({ selected, onSubmit, onCancel }: OrphanFormProps) {
             : "إضافة السجل رسمياً"}
         </button>
       </div>
+      <input
+        type="file"
+        ref={docInputRef}
+        onChange={handleDocUpload}
+        className="hidden"
+        multiple
+        accept="image/*,application/pdf"
+      />
     </form>
   );
 }

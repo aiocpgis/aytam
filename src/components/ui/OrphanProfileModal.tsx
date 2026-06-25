@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { OrphanRecord } from "../../types/orphan.types";
 import { usePermissions } from "../../hooks/usePermissions";
 import { getOrphanPhotoSignedUrl } from "../../features/orphans/orphanPhoto.service";
+import { createSignedDocumentUrl } from "../../features/applications/applicationRequests.service";
 
 interface OrphanProfileModalProps {
   orphan: OrphanRecord;
@@ -39,6 +40,85 @@ function formatDate(dateValue: unknown) {
   const date = new Date(String(dateValue));
   if (Number.isNaN(date.getTime())) return String(dateValue);
   return date.toLocaleDateString("ar-SA", { year: "numeric", month: "long", day: "numeric" });
+}
+
+interface DocumentThumbnailProps {
+  document: { name: string; path: string };
+}
+
+function DocumentThumbnail({ document }: DocumentThumbnailProps) {
+  const { hasPermission } = usePermissions();
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isOpening, setIsOpening] = useState(false);
+
+  const isImage = /\.(jpe?g|png|webp|gif|svg)$/i.test(document.name || document.path);
+
+  useEffect(() => {
+    if (isImage && hasPermission("orphans.view_documents")) {
+      setIsLoading(true);
+      createSignedDocumentUrl(document.path)
+        .then((url) => setThumbnailUrl(url))
+        .catch((err) => console.error("Failed to load thumbnail", err))
+        .finally(() => setIsLoading(false));
+    }
+  }, [document.path, isImage, hasPermission]);
+
+  async function handleOpen() {
+    if (!hasPermission("orphans.view_documents")) {
+      alert("لا تملك الصلاحية لعرض المستندات.");
+      return;
+    }
+    try {
+      setIsOpening(true);
+      const url = thumbnailUrl || await createSignedDocumentUrl(document.path);
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      console.error(error);
+      alert("تعذر فتح الملف.");
+    } finally {
+      setIsOpening(false);
+    }
+  }
+
+  if (isImage) {
+    return (
+      <button
+        type="button"
+        onClick={handleOpen}
+        disabled={isOpening}
+        className="relative group block h-16 w-16 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 transition hover:border-indigo-400 hover:shadow-md shrink-0 animate-in fade-in"
+      >
+        {thumbnailUrl ? (
+          <img
+            src={thumbnailUrl}
+            alt={document.name}
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-110"
+          />
+        ) : isLoading ? (
+          <div className="flex h-full w-full items-center justify-center">
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+          </div>
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-slate-400">
+            <FileText className="h-6 w-6" />
+          </div>
+        )}
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleOpen}
+      disabled={isOpening}
+      className="flex h-16 w-16 flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-500 transition hover:border-indigo-400 hover:text-indigo-500 hover:shadow-md shrink-0 animate-in fade-in"
+    >
+      <FileText className="h-6 w-6" />
+      <span className="mt-1 max-w-[50px] truncate text-[9px] font-extrabold">{document.name}</span>
+    </button>
+  );
 }
 
 export function OrphanProfileModal({ orphan, onClose }: OrphanProfileModalProps) {
@@ -186,6 +266,21 @@ export function OrphanProfileModal({ orphan, onClose }: OrphanProfileModalProps)
               </div>
             </div>
           </div>
+
+          {/* Documents Section */}
+          {orphan.documents && orphan.documents.length > 0 && (
+            <div className="bg-white/40 dark:bg-slate-800/40 p-6 rounded-3xl border border-white/60 dark:border-slate-700/60 space-y-4">
+              <h4 className="text-sm font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <FileText className="h-4 w-4 text-indigo-500" />
+                المستندات والأوراق الثبوتية
+              </h4>
+              <div className="flex flex-wrap gap-2.5">
+                {orphan.documents.map((doc) => (
+                  <DocumentThumbnail key={doc.path} document={doc} />
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Sponsorship & Financial Details */}
           {(orphan.sponsorName || orphan.sponsorshipAmount || orphan.transferAccountNumber) && (

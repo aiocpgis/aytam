@@ -1,5 +1,5 @@
 import { supabase } from "../../lib/supabase";
-import type { OrphanRecord } from "../../types/orphan.types";
+import type { OrphanRecord, UploadedDocument } from "../../types/orphan.types";
 import { logActivity } from "../audit/activityLog.service";
 
 const ORPHANS_TABLE = "orphans";
@@ -104,6 +104,7 @@ export async function fetchAllOrphans() {
 
 export function subscribeToOrphans(callback: (records: OrphanRecord[]) => void) {
   let isActive = true;
+  let fetchVersion = 0;
 
   fetchAllOrphans()
     .then((records) => {
@@ -120,9 +121,12 @@ export function subscribeToOrphans(callback: (records: OrphanRecord[]) => void) 
       "postgres_changes",
       { event: "*", schema: "public", table: ORPHANS_TABLE },
       async () => {
+        const currentVersion = ++fetchVersion;
         try {
           const records = await fetchAllOrphans();
-          if (isActive) callback(records);
+          if (isActive && fetchVersion === currentVersion) {
+            callback(records);
+          }
         } catch (error) {
           console.error("Failed to refresh orphans", error);
         }
@@ -180,4 +184,96 @@ export async function importOrphans(records: Array<Omit<OrphanRecord, "id" | "cr
   await logActivity("IMPORT_ORPHANS", ORPHANS_TABLE, undefined, { count: validRecords.length });
 
   return validRecords.length;
+}
+
+export async function uploadOrphanDocument(
+  orphanId: string,
+  file: File
+): Promise<UploadedDocument> {
+  const extension = file.name.includes(".") ? file.name.split(".").pop() : "file";
+  const base = file.name
+    .replace(/\.[^/.]+$/, "")
+    .replace(/\s+/g, "-")
+    .replace(/[()]/g, "")
+    .replace(/[^\u0600-\u06FFa-zA-Z0-9-_]/g, "");
+  
+  const safeName = `${base || "document"}.${extension}`;
+  const filePath = `orphans/${orphanId}/${Date.now()}-${safeName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("orphan-documents")
+    .upload(filePath, file, {
+      contentType: file.type,
+      cacheControl: "3600",
+      upsert: false,
+    });
+
+  if (uploadError) throw uploadError;
+
+  const newDoc: UploadedDocument = {
+    name: file.name,
+    url: "",
+    path: filePath,
+    type: file.type,
+    size: file.size,
+    uploadedAt: new Date().toISOString(),
+  };
+
+  // Fetch current documents
+  const { data: orphanData, error: fetchError } = await supabase
+    .from(ORPHANS_TABLE)
+    .select("documents")
+    .eq("id", orphanId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  const currentDocs = (orphanData?.documents as UploadedDocument[]) || [];
+  const updatedDocs = [...currentDocs, newDoc];
+
+  const { error: updateError } = await supabase
+    .from(ORPHANS_TABLE)
+    .update({ documents: updatedDocs })
+    .eq("id", orphanId);
+
+  if (updateError) {
+    // best effort delete from storage if DB update fails
+    await supabase.storage.from("orphan-documents").remove([filePath]);
+    throw updateError;
+  }
+
+  return newDoc;
+}
+
+export async function deleteOrphanDocument(
+  orphanId: string,
+  docPath: string
+): Promise<void> {
+  // 1. Delete from storage
+  const { error: deleteStorageError } = await supabase.storage
+    .from("orphan-documents")
+    .remove([docPath]);
+
+  if (deleteStorageError) {
+    console.error("Failed to delete document from storage", deleteStorageError);
+  }
+
+  // 2. Fetch current documents and remove the target document
+  const { data: orphanData, error: fetchError } = await supabase
+    .from(ORPHANS_TABLE)
+    .select("documents")
+    .eq("id", orphanId)
+    .single();
+
+  if (fetchError) throw fetchError;
+
+  const currentDocs = (orphanData?.documents as UploadedDocument[]) || [];
+  const updatedDocs = currentDocs.filter((doc) => doc.path !== docPath);
+
+  const { error: updateError } = await supabase
+    .from(ORPHANS_TABLE)
+    .update({ documents: updatedDocs })
+    .eq("id", orphanId);
+
+  if (updateError) throw updateError;
 }

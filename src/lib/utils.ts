@@ -28,6 +28,20 @@ export function calculateAge(birthDate?: string) {
   return age;
 }
 
+export function stripHtml(value: string): string {
+  return value.replace(/<[^>]*>/g, "");
+}
+
+export function containsXss(value: string): boolean {
+  if (/<[^>]*>/i.test(value)) return true;
+  if (/javascript:/i.test(value)) return true;
+  return false;
+}
+
+export function sanitizeInput(value: string): string {
+  return stripHtml(value).trim();
+}
+
 export function toDateInputValue(value: unknown): string {
   if (!value) return "";
   if (value instanceof Date && !Number.isNaN(value.getTime())) {

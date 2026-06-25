@@ -2,6 +2,7 @@ import { Edit3, Trash2, Calendar, MapPin, Shield, User, Landmark, Heart, Eye } f
 import { useState } from "react";
 import type { OrphanRecord } from "../../types/orphan.types";
 import { OrphanProfileModal } from "../../components/ui/OrphanProfileModal";
+import { OrphanAvatar } from "../../components/ui/OrphanAvatar";
 import { usePermissions } from "../../hooks/usePermissions";
 
 interface OrphansTableProps {
@@ -108,7 +109,12 @@ export function OrphansTable({ records, onEdit, onDelete }: OrphansTableProps) {
             <tbody className="divide-y divide-slate-100/50 bg-white/40">
               {records.map((record) => (
                 <tr key={record.id} className="transition-all duration-200 hover:bg-blue-50/40">
-                  <td className="px-5 py-4 font-black text-slate-800 text-sm">{record.childFullName}</td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center gap-3">
+                      <OrphanAvatar photoPath={record.photo_path} childName={record.childFullName} size="sm" />
+                      <span className="font-black text-slate-800 text-sm">{record.childFullName}</span>
+                    </div>
+                  </td>
                   <td className="px-4 py-4 text-slate-600 text-sm font-semibold">{record.birthDate || "-"}</td>
                   <td className="px-4 py-4 text-slate-600 text-sm font-semibold">{record.gender}</td>
                   <td className="px-4 py-4 text-slate-600 text-sm font-semibold">{record.orphanType}</td>
@@ -194,28 +200,31 @@ export function OrphansTable({ records, onEdit, onDelete }: OrphansTableProps) {
             className="glass-card p-5 border border-white/60 bg-white/50 shadow-soft transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
           >
             {/* Header: Name and badges */}
-            <div className="flex items-start justify-between gap-2 border-b border-slate-100/50 pb-3">
-              <div>
-                <h4 className="text-base font-black text-slate-900 leading-tight">{record.childFullName}</h4>
-                <div className="mt-1 flex flex-wrap gap-2 items-center text-xs font-bold text-slate-500">
-                  <span className="inline-flex items-center gap-1">
-                    <Calendar className="h-3 w-3" />
-                    {record.birthDate || "-"}
-                  </span>
-                  <span>•</span>
-                  <span>{record.gender}</span>
-                  <span>•</span>
-                  <span>{record.orphanType}</span>
+              <div className="flex items-start justify-between gap-2 border-b border-slate-100/50 pb-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <OrphanAvatar photoPath={record.photo_path} childName={record.childFullName} size="md" />
+                  <div>
+                    <h4 className="text-base font-black text-slate-900 leading-tight">{record.childFullName}</h4>
+                    <div className="mt-1 flex flex-wrap gap-2 items-center text-xs font-bold text-slate-500">
+                      <span className="inline-flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {record.birthDate || "-"}
+                      </span>
+                      <span>•</span>
+                      <span>{record.gender}</span>
+                      <span>•</span>
+                      <span>{record.orphanType}</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="flex flex-col gap-1.5 items-end">
-                <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-black ${getSponsorshipBadge(record.sponsorshipStatus)}`}>
-                  {record.sponsorshipStatus}
-                </span>
-                <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-black ${getFileStatusBadge(record.fileStatus)}`}>
-                  {record.fileStatus}
-                </span>
-              </div>
+                <div className="flex flex-col gap-1.5 items-end shrink-0">
+                  <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-black ${getSponsorshipBadge(record.sponsorshipStatus)}`}>
+                    {record.sponsorshipStatus}
+                  </span>
+                  <span className={`inline-block rounded-full px-2.5 py-0.5 text-[10px] font-black ${getFileStatusBadge(record.fileStatus)}`}>
+                    {record.fileStatus}
+                  </span>
+                </div>
             </div>
 
             {/* Content Details */}

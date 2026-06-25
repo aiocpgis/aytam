@@ -1,8 +1,9 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { FileUp, Send, Baby, UserCheck, FileText, ArrowRight, ArrowLeft, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
 import { createPublicApplication } from "./application.service";
 import type { Gender, OrphanType } from "../../types/orphan.types";
 import { QuranVersePopup } from "../../components/ui/QuranVersePopup";
+import { containsXss, sanitizeInput } from "../../lib/utils";
 
 const governorates = ["شمال غزة", "غزة", "الوسطى", "خانيونس", "رفح", "نابلس", "رام الله والبيرة", "الخليل", "جنين", "طولكرم", "قلقيلية", "بيت Bethlehem", "سلفيت", "طوباس", "أريحا", "القدس"];
 const transferAccountOptions = ["بنك فلسطين", "بال باي", "جوال باي"] as const;
@@ -64,6 +65,17 @@ export function PublicApplicationForm() {
   const [isDragActive, setIsDragActive] = useState(false);
   const [direction, setDirection] = useState<"next" | "prev">("next");
   const [fileProgresses, setFileProgresses] = useState<Record<string, number>>({});
+  const intervalRefs = useRef<ReturnType<typeof setInterval>[]>([]);
+  const objectUrls = useRef<string[]>([]);
+
+  useEffect(() => {
+    return () => {
+      intervalRefs.current.forEach(clearInterval);
+      intervalRefs.current = [];
+      objectUrls.current.forEach(URL.revokeObjectURL);
+      objectUrls.current = [];
+    };
+  }, []);
 
   const todayInputValue = formatDateInput(new Date());
   const oldestAllowedBirthDate = getOldestAllowedBirthDate();
@@ -74,6 +86,11 @@ export function PublicApplicationForm() {
     if (currentStep === 1) {
       if (!childFullName.trim()) {
         setMessage("يرجى إدخال الاسم الرباعي للطفل بشكل صحيح.");
+        return false;
+      }
+
+      if (containsXss(childFullName)) {
+        setMessage("يحتوي اسم الطفل على مدخلات غير صالحة أو غير آمنة.");
         return false;
       }
 
@@ -98,8 +115,15 @@ export function PublicApplicationForm() {
         return false;
       }
 
-      if (!guardianPhone.trim() || guardianPhone.trim().length < 9) {
-        setMessage("يرجى إدخال رقم جوال صحيح للتواصل عبره.");
+      if (containsXss(guardianName) || containsXss(address) || containsXss(notes)) {
+        setMessage("تحتوي بعض الحقول المدخلة على رموز غير آمنة أو أكواد غير مصرح بها.");
+        return false;
+      }
+
+      const phoneClean = guardianPhone.trim().replace(/[-\s]/g, "");
+      const phoneRegex = /^(05\d{8}|9705\d{8}|9725\d{8}|\+9705\d{8}|\+9725\d{8})$/;
+      if (!phoneRegex.test(phoneClean)) {
+        setMessage("يرجى إدخال رقم جوال وصي صحيح (مثال: 0599000000).");
         return false;
       }
 
@@ -108,13 +132,19 @@ export function PublicApplicationForm() {
         return false;
       }
 
-      if (!transferAccountNumber.trim() || transferAccountNumber.trim().length < 9) {
-        setMessage("يرجى إدخال رقم الجوال المرتبط بحساب الاستلام بشكل صحيح.");
+      const transferClean = transferAccountNumber.trim().replace(/[-\s]/g, "");
+      if (!phoneRegex.test(transferClean)) {
+        setMessage("يرجى إدخال رقم الجوال الصحيح المرتبط بمحفظة أو حساب الاستلام (مثال: 0599000000).");
         return false;
       }
 
       if (sponsorshipStatus === "مكفول" && sponsorName.trim().length < 3) {
         setMessage("يرجى إدخال اسم الكفيل عند اختيار حالة مكفول.");
+        return false;
+      }
+
+      if (sponsorshipStatus === "مكفول" && containsXss(sponsorName)) {
+        setMessage("يحتوي اسم الكفيل على رموز غير آمنة.");
         return false;
       }
 
@@ -149,7 +179,30 @@ export function PublicApplicationForm() {
   };
 
   const handleFileChange = (newFiles: File[]) => {
-    const updatedNewFiles = newFiles.map((file) => {
+    const validFiles: File[] = [];
+    const errors: string[] = [];
+
+    newFiles.forEach((file) => {
+      const isImage = file.type.startsWith("image/");
+      const isPdf = file.type === "application/pdf";
+      const isSizeOk = file.size <= 5 * 1024 * 1024; // 5MB
+
+      if (!isImage && !isPdf) {
+        errors.push(`الملف "${file.name}" غير مدعوم. يُقبل فقط الصور وملفات PDF.`);
+      } else if (!isSizeOk) {
+        errors.push(`الملف "${file.name}" يتجاوز الحد الأقصى للحجم (5 ميغابايت).`);
+      } else {
+        validFiles.push(file);
+      }
+    });
+
+    if (errors.length > 0) {
+      setMessage(errors.join(" \n"));
+    }
+
+    if (validFiles.length === 0) return;
+
+    const updatedNewFiles = validFiles.map((file) => {
       const fileKey = `${file.name}-${file.size}-${Date.now()}-${Math.random()}`;
       const decoratedFile = file as File & { uploadKey: string };
       decoratedFile.uploadKey = fileKey;
@@ -171,11 +224,20 @@ export function PublicApplicationForm() {
         }
         setFileProgresses((prev) => ({ ...prev, [fileKey]: currentProgress }));
       }, 150);
+
+      intervalRefs.current.push(interval);
     });
   };
 
   const removeFile = (indexToRemove: number) => {
-    setFiles((prev) => prev.filter((_, idx) => idx !== indexToRemove));
+    setFiles((prev) => {
+      const removedFile = prev[indexToRemove];
+      if (removedFile) {
+        const url = URL.createObjectURL(removedFile);
+        URL.revokeObjectURL(url);
+      }
+      return prev.filter((_, idx) => idx !== indexToRemove);
+    });
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -211,17 +273,17 @@ export function PublicApplicationForm() {
       setIsSubmitting(true);
       await createPublicApplication(
         {
-          childFullName,
+          childFullName: sanitizeInput(childFullName),
           birthDate,
-          sponsorName: sponsorshipStatus === "مكفول" ? sponsorName : "",
-          sponsorCountry: sponsorshipStatus === "مكفول" ? sponsorCountry : "",
+          sponsorName: sponsorshipStatus === "مكفول" ? sanitizeInput(sponsorName) : "",
+          sponsorCountry: sponsorshipStatus === "مكفول" ? sanitizeInput(sponsorCountry) : "",
           sponsorshipAmount: null,
           sponsorPhone: "",
-          guardianName,
-          guardianRelation,
+          guardianName: sanitizeInput(guardianName),
+          guardianRelation: sanitizeInput(guardianRelation),
           guardianPhone,
           orphanType,
-          address,
+          address: sanitizeInput(address),
           transferAccountName,
           transferAccountNumber,
           documentsStatus: "مرفوعة بانتظار المراجعة",
@@ -229,7 +291,7 @@ export function PublicApplicationForm() {
           gender,
           sponsorshipStatus,
           currency: "شيكل",
-          notes,
+          notes: sanitizeInput(notes),
         },
         files,
         (progress) => setUploadProgress(progress)
@@ -564,9 +626,9 @@ export function PublicApplicationForm() {
                     </p>
 
                     <div
-                      className={`relative border-2 border-dashed rounded-3xl p-8 text-center transition cursor-pointer group ${
+                      className={`relative border-2 border-dashed rounded-3xl p-8 text-center transition-all duration-300 cursor-pointer group ${
                         isDragActive
-                          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
+                          ? "border-blue-500 bg-blue-50/80 dark:bg-blue-900/30 scale-[1.02] shadow-[0_0_25px_rgba(59,130,246,0.2)]"
                           : "border-slate-200 dark:border-slate-700 hover:border-blue-400 bg-white/70 dark:bg-slate-800/70"
                       }`}
                       onDragOver={handleDragOver}

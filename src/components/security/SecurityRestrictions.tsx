@@ -51,8 +51,6 @@ export function SecurityRestrictions() {
 
   if (isLoading || !userInfo) return null;
 
-  const showWatermark = hasPermission("security.enable_watermark");
-
   return (
     <>
       {/* 
@@ -66,21 +64,6 @@ export function SecurityRestrictions() {
             body { display: none !important; }
           }
         `}} />
-      )}
-
-      {showWatermark && (
-        <div 
-          className="pointer-events-none fixed inset-0 z-[9999] overflow-hidden opacity-5"
-          aria-hidden="true"
-        >
-          <div className="absolute inset-[-100%] flex flex-wrap justify-center items-center gap-20 rotate-[-30deg]">
-            {Array.from({ length: 50 }).map((_, i) => (
-              <div key={i} className="text-slate-900 font-bold text-2xl whitespace-nowrap">
-                {userInfo.name} • {userInfo.email} • {new Date().toLocaleDateString('ar-EG')}
-              </div>
-            ))}
-          </div>
-        </div>
       )}
     </>
   );
