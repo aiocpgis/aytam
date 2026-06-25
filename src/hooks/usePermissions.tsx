@@ -29,15 +29,17 @@ export function PermissionsProvider({ children }: { children: React.ReactNode })
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchPermissions = async () => {
-    setIsLoading(true);
+  // firstLoad = true  → shows loading UI
+  // firstLoad = false → silent background refresh (tab switching, token refresh)
+  const fetchPermissions = async (firstLoad = false) => {
+    if (firstLoad) setIsLoading(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setIsLoading(false);
+        if (firstLoad) setIsLoading(false);
         return;
       }
-      
+
       const [superAdmin, perms] = await Promise.all([
         checkIsSuperAdmin(),
         getCurrentUserPermissions(),
@@ -47,15 +49,20 @@ export function PermissionsProvider({ children }: { children: React.ReactNode })
     } catch (err) {
       console.error("Error fetching permissions", err);
     } finally {
-      setIsLoading(false);
+      if (firstLoad) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPermissions();
+    // First load — show the loading screen
+    fetchPermissions(true);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      fetchPermissions();
+    // Subsequent auth events (TOKEN_REFRESHED, tab switching) — silent refresh
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      // Only re-fetch on actual sign-in/sign-out; ignore token refreshes
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        fetchPermissions(false);
+      }
     });
 
     return () => {
@@ -75,7 +82,7 @@ export function PermissionsProvider({ children }: { children: React.ReactNode })
       hasPermission,
       hasAnyPermission,
       hasAllPermissions,
-      refreshPermissions: fetchPermissions
+      refreshPermissions: () => fetchPermissions(false),
     }}>
       {children}
     </PermissionsContext.Provider>

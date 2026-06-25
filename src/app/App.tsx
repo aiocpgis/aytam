@@ -8,16 +8,22 @@ import { ToastProvider } from "../components/ui/ToastProvider";
 import { SecurityRestrictions } from "../components/security/SecurityRestrictions";
 
 export default function App() {
-  // Bypass the 3.5s cinematic intro video if the user is visiting an administrative path (starting with /admin)
+  // Show the cinematic loader only once per browser-tab session.
+  // sessionStorage persists across minimise/restore but is cleared when the tab closes.
+  // This prevents Supabase TOKEN_REFRESHED events from re-triggering the loader.
   const isAdminPath = window.location.pathname.includes("/admin");
-  const [showLoader, setShowLoader] = useState(!isAdminPath);
+  const alreadyShown = sessionStorage.getItem("rifq_loader_shown") === "1";
+  const [showLoader, setShowLoader] = useState(!isAdminPath && !alreadyShown);
 
   return (
     <ThemeProvider defaultTheme="light" storageKey="orphan-care-theme">
       <ToastProvider>
         <PermissionsProvider>
           <SecurityRestrictions />
-          {showLoader && <LoadingScreen onComplete={() => setShowLoader(false)} />}
+          {showLoader && <LoadingScreen onComplete={() => {
+            sessionStorage.setItem("rifq_loader_shown", "1");
+            setShowLoader(false);
+          }} />}
           <RouterProvider router={router} />
         </PermissionsProvider>
       </ToastProvider>

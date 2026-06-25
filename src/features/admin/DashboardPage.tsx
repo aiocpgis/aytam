@@ -21,6 +21,7 @@ import {
   TrendingUp,
   UserCog,
   Users,
+  X,
 } from "lucide-react";
 import type { OrphanRecord } from "../../types/orphan.types";
 import { normalizeArabicText } from "../../lib/utils";
@@ -39,6 +40,7 @@ import { GovernorateBarChart } from "../../components/charts/GovernorateBarChart
 import { exportDashboardStatsToPDF } from "../../lib/pdfExport";
 import { useToast } from "../../components/ui/ToastProvider";
 import { usePermissions } from "../../hooks/usePermissions";
+import { PageLoader } from "../../components/ui/PageLoader";
 import * as XLSX from "xlsx";
 
 type DashboardTab = "overview" | "directory" | "sponsorships" | "applications" | "duplicates" | "import" | "users";
@@ -267,11 +269,7 @@ export function DashboardPage() {
   }
 
   if (permissionsLoading) {
-    return (
-      <div className="grid min-h-[400px] place-items-center text-sm font-bold text-slate-500">
-        جاري التحقق من صلاحيات الدخول...
-      </div>
-    );
+    return <PageLoader text="جاري تحميل لوحة التحكم..." />;
   }
 
   if (allowedTabs.length === 0) {
@@ -487,19 +485,6 @@ export function DashboardPage() {
 
           {activeTab === "directory" && (
             <div className="space-y-6 animate-in fade-in-50 duration-200">
-              {showAddForm && (
-                <div className="animate-in fade-in-50 slide-in-from-top-4 duration-300">
-                  <OrphanForm
-                    selected={selected}
-                    onSubmit={handleSave}
-                    onCancel={() => {
-                      setSelected(null);
-                      setShowAddForm(false);
-                    }}
-                  />
-                </div>
-              )}
-
               <div className="glass-card p-5 border border-white/60 bg-white/50 shadow-glass">
                 <div className="grid gap-4 md:grid-cols-[1.5fr_1fr_1fr]">
                   <div className="relative">
@@ -611,6 +596,60 @@ export function DashboardPage() {
         onConfirm={handleDeleteConfirm}
         onCancel={() => !isDeleting && setConfirmDeleteId(null)}
       />
+
+      {/* ── Centered Modal for Adding/Editing Orphan ── */}
+      {showAddForm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 text-right"
+          role="dialog"
+          aria-modal="true"
+        >
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={() => {
+              setSelected(null);
+              setShowAddForm(false);
+            }}
+          />
+
+          {/* Modal Panel */}
+          <div className="relative z-10 w-full max-w-2xl max-h-[90vh] bg-white rounded-3xl shadow-2xl flex flex-col animate-in fade-in-50 zoom-in-95 duration-200 border border-slate-200/60">
+
+            {/* Modal Header */}
+            <div className="flex items-center justify-between gap-4 px-6 py-4 border-b border-slate-100 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+                <h3 className="text-base font-black text-slate-900">
+                  {selected ? "تعديل بيانات سجل اليتيم" : "إضافة سجل يتيم جديد"}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelected(null);
+                  setShowAddForm(false);
+                }}
+                className="rounded-xl p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body — OrphanForm manages scroll + sticky footer */}
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden px-6 pt-4">
+              <OrphanForm
+                selected={selected}
+                onSubmit={handleSave}
+                onCancel={() => {
+                  setSelected(null);
+                  setShowAddForm(false);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

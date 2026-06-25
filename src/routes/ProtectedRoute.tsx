@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { PageLoader } from "../components/ui/PageLoader";
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -39,8 +40,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
     void checkSession();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(() => {
-      void checkSession();
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      // Ignore TOKEN_REFRESHED (fired on tab switch) — only react to real auth changes
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        void checkSession();
+      }
     });
 
     return () => {
@@ -50,7 +54,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
   }, []);
 
   if (!isReady) {
-    return <div className="grid min-h-screen place-items-center text-sm font-bold text-slate-500">جاري التحقق...</div>;
+    return <PageLoader text="جاري التحقق من صلاحية الدخول..." />;
   }
 
   if (!isAdmin) {

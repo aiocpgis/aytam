@@ -50,8 +50,11 @@ export function AdminLayout() {
 
     void loadWelcomeInfo();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(() => {
-      void loadWelcomeInfo();
+    const { data: listener } = supabase.auth.onAuthStateChange((event) => {
+      // Silent on token refresh — only reload on real auth state changes
+      if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+        void loadWelcomeInfo();
+      }
     });
 
     return () => {
