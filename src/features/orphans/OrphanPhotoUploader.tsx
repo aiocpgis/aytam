@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { AlertCircle, CheckCircle2, User, Loader2, Plus, Trash2 } from "lucide-react";
-import { supabase } from "../../lib/supabase";
 import {
   validateOrphanPhoto,
   uploadOrphanPhoto,
   getOrphanPhotoSignedUrl,
   deleteOrphanPhoto,
+  getOrphanPhotoPaths,
 } from "./orphanPhoto.service";
 
 interface OrphanPhotoUploaderProps {
@@ -18,39 +18,6 @@ interface PhotoItem {
   path: string;
   url: string | null;
   loadingUrl: boolean;
-}
-
-const BUCKET_NAME = "orphan-photos";
-
-/**
- * List all photos stored under `orphanId/` in the bucket.
- * Falls back gracefully if the Storage LIST policy is restricted.
- */
-async function listOrphanPhotos(orphanId: string): Promise<string[]> {
-  try {
-    const { data, error } = await supabase.storage
-      .from(BUCKET_NAME)
-      .list(orphanId, { sortBy: { column: "created_at", order: "asc" } });
-
-    if (error) {
-      console.warn("[PhotoUploader] storage.list error:", error.message);
-      return [];
-    }
-
-    if (!data || data.length === 0) return [];
-
-    return data
-      .filter(
-        (f) =>
-          f.name !== ".emptyFolderPlaceholder" &&
-          f.name !== "" &&
-          f.metadata !== null           // real files have metadata; folders don't
-      )
-      .map((f) => `${orphanId}/${f.name}`);
-  } catch (err) {
-    console.warn("[PhotoUploader] unexpected list error:", err);
-    return [];
-  }
 }
 
 export function OrphanPhotoUploader({
@@ -66,26 +33,19 @@ export function OrphanPhotoUploader({
   const [deletingPath, setDeletingPath] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  /** Resolve a storage path → signed URL */
-  const resolveUrl = useCallback(async (path: string): Promise<string | null> => {
-    return getOrphanPhotoSignedUrl(path);
-  }, []);
-
-  /** Build the photo list and resolve signed URLs for each */
+  /** Load all photos for this orphan from the DB then resolve signed URLs */
   const refreshPhotos = useCallback(async () => {
     setLoadingList(true);
     try {
       let paths: string[] = [];
 
       if (orphanId) {
-        // ── Primary: list everything under orphanId/ in storage ──
-        paths = await listOrphanPhotos(orphanId);
-        console.log("[PhotoUploader] storage.list returned:", paths);
+        // Primary: read from DB (photo_paths array)
+        paths = await getOrphanPhotoPaths(orphanId);
       }
 
-      // ── Fallback: if listing returned nothing, use the DB photo_path ──
+      // Fallback: use the prop directly if DB returned nothing
       if (paths.length === 0 && currentPhotoPath) {
-        console.log("[PhotoUploader] fallback to currentPhotoPath:", currentPhotoPath);
         paths = [currentPhotoPath];
       }
 
@@ -94,20 +54,18 @@ export function OrphanPhotoUploader({
         return;
       }
 
-      // Show placeholder tiles while URLs load
+      // Show placeholder tiles while URLs are resolving
       setPhotos(paths.map((p) => ({ path: p, url: null, loadingUrl: true })));
 
       // Resolve all signed URLs in parallel
-      const urls = await Promise.all(paths.map(resolveUrl));
-      setPhotos(
-        paths.map((p, i) => ({ path: p, url: urls[i], loadingUrl: false }))
-      );
+      const urls = await Promise.all(paths.map((p) => getOrphanPhotoSignedUrl(p)));
+      setPhotos(paths.map((p, i) => ({ path: p, url: urls[i], loadingUrl: false })));
     } catch (err) {
       console.error("[PhotoUploader] refreshPhotos error:", err);
     } finally {
       setLoadingList(false);
     }
-  }, [orphanId, currentPhotoPath, resolveUrl]);
+  }, [orphanId, currentPhotoPath]);
 
   useEffect(() => {
     refreshPhotos();
@@ -152,16 +110,7 @@ export function OrphanPhotoUploader({
     setError(null);
     setDeletingPath(path);
     try {
-      await deleteOrphanPhoto(path);
-
-      // If deleted photo was the main photo_path, clear it in DB
-      if (orphanId && path === currentPhotoPath) {
-        await supabase
-          .from("orphans")
-          .update({ photo_path: null, photo_uploaded_at: null })
-          .eq("id", orphanId);
-      }
-
+      await deleteOrphanPhoto(path, orphanId ?? undefined);
       setPhotos((prev) => prev.filter((p) => p.path !== path));
       setSuccess("تم حذف الصورة بنجاح.");
       setTimeout(() => setSuccess(null), 3000);
@@ -191,15 +140,13 @@ export function OrphanPhotoUploader({
       {/* Photos grid */}
       <div className="flex flex-wrap gap-3">
         {loadingList ? (
-          /* Loading placeholder */
-          [1, 2, 3].map((i) => (
+          [1, 2].map((i) => (
             <div
               key={i}
               className="h-20 w-20 animate-pulse rounded-2xl border border-slate-200 bg-slate-100"
             />
           ))
         ) : photos.length === 0 ? (
-          /* Empty state */
           <div className="flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 text-slate-400">
             <User className="h-7 w-7" />
             <span className="text-[9px] font-bold">لا توجد صور</span>
@@ -219,10 +166,6 @@ export function OrphanPhotoUploader({
                   src={photo.url}
                   alt="صورة اليتيم"
                   className="h-full w-full object-cover"
-                  onError={(e) => {
-                    // URL expired — hide broken image
-                    (e.target as HTMLImageElement).style.display = "none";
-                  }}
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center">
