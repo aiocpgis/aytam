@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { FileUp, Send, Baby, UserCheck, FileText, ArrowRight, ArrowLeft, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
+import { FileUp, Send, Baby, UserCheck, FileText, ArrowRight, ArrowLeft, Trash2, CheckCircle2, AlertCircle, Loader2 } from "lucide-react";
 import { createPublicApplication } from "./application.service";
 import type { Gender, OrphanType } from "../../types/orphan.types";
 import { QuranVersePopup } from "../../components/ui/QuranVersePopup";
 import { containsXss, sanitizeInput } from "../../lib/utils";
+import { getPublicFormSettings, PublicFormSettings, defaultFormSettings } from "../admin/settings.service";
 
 const governorates = ["شمال غزة", "غزة", "الوسطى", "خانيونس", "رفح", "نابلس", "رام الله والبيرة", "الخليل", "جنين", "طولكرم", "قلقيلية", "بيت Bethlehem", "سلفيت", "طوباس", "أريحا", "القدس"];
 const transferAccountOptions = ["بنك فلسطين", "بال باي", "جوال باي"] as const;
@@ -68,6 +69,23 @@ export function PublicApplicationForm() {
   const intervalRefs = useRef<ReturnType<typeof setInterval>[]>([]);
   const objectUrls = useRef<string[]>([]);
 
+  const [formSettings, setFormSettings] = useState<PublicFormSettings>(defaultFormSettings);
+  const [isSettingsLoading, setIsSettingsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const settings = await getPublicFormSettings();
+        setFormSettings(settings);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsSettingsLoading(false);
+      }
+    }
+    loadSettings();
+  }, []);
+
   useEffect(() => {
     return () => {
       intervalRefs.current.forEach(clearInterval);
@@ -84,73 +102,117 @@ export function PublicApplicationForm() {
     setMessage("");
 
     if (currentStep === 1) {
-      if (!childFullName.trim()) {
-        setMessage("يرجى إدخال الاسم الرباعي للطفل بشكل صحيح.");
-        return false;
+      if (!formSettings.childFullName.hidden) {
+        if (formSettings.childFullName.required && !childFullName.trim()) {
+          setMessage("يرجى إدخال الاسم الرباعي للطفل بشكل صحيح.");
+          return false;
+        }
+        if (childFullName.trim() && containsXss(childFullName)) {
+          setMessage("يحتوي اسم الطفل على مدخلات غير صالحة أو غير آمنة.");
+          return false;
+        }
       }
 
-      if (containsXss(childFullName)) {
-        setMessage("يحتوي اسم الطفل على مدخلات غير صالحة أو غير آمنة.");
-        return false;
-      }
-
-      if (!birthDate) {
-        setMessage("يرجى إدخال تاريخ ميلاد الطفل.");
-        return false;
-      }
-
-      const age = calculateAgeInYears(birthDate);
-      if (age === null) {
-        setMessage("يرجى إدخال تاريخ ميلاد صحيح وغير مستقبلي.");
-        return false;
-      }
-
-      if (age > 15) {
-        setMessage("طلب الكفالة في النموذج العام مخصص للأطفال من عمر 15 سنة فأقل فقط.");
-        return false;
+      if (!formSettings.birthDate.hidden) {
+        if (formSettings.birthDate.required && !birthDate) {
+          setMessage("يرجى إدخال تاريخ ميلاد الطفل.");
+          return false;
+        }
+        if (birthDate) {
+          const age = calculateAgeInYears(birthDate);
+          if (age === null) {
+            setMessage("يرجى إدخال تاريخ ميلاد صحيح وغير مستقبلي.");
+            return false;
+          }
+          if (age > 15) {
+            setMessage("طلب الكفالة في النموذج العام مخصص للأطفال من عمر 15 سنة فأقل فقط.");
+            return false;
+          }
+        }
       }
     } else if (currentStep === 2) {
-      if (!guardianName.trim()) {
-        setMessage("يرجى إدخال اسم الوصي بالكامل.");
-        return false;
+      if (!formSettings.guardianName.hidden) {
+        if (formSettings.guardianName.required && !guardianName.trim()) {
+          setMessage("يرجى إدخال اسم الوصي بالكامل.");
+          return false;
+        }
+        if (containsXss(guardianName)) {
+          setMessage("تحتوي بعض الحقول المدخلة على رموز غير آمنة.");
+          return false;
+        }
       }
 
-      if (containsXss(guardianName) || containsXss(address) || containsXss(notes)) {
-        setMessage("تحتوي بعض الحقول المدخلة على رموز غير آمنة أو أكواد غير مصرح بها.");
-        return false;
+      if (!formSettings.address.hidden) {
+        if (formSettings.address.required && !address.trim()) {
+          setMessage("يرجى توضيح عنوان ومكان السكن بالتفصيل.");
+          return false;
+        }
+        if (containsXss(address)) {
+          setMessage("يحتوي العنوان على رموز غير آمنة.");
+          return false;
+        }
       }
 
-      const phoneClean = guardianPhone.trim().replace(/[-\s]/g, "");
-      const phoneRegex = /^(05\d{8}|9705\d{8}|9725\d{8}|\+9705\d{8}|\+9725\d{8})$/;
-      if (!phoneRegex.test(phoneClean)) {
-        setMessage("يرجى إدخال رقم جوال وصي صحيح (مثال: 0599000000).");
-        return false;
+      if (!formSettings.guardianPhone.hidden) {
+        if (formSettings.guardianPhone.required && !guardianPhone.trim()) {
+          setMessage("يرجى إدخال رقم جوال وصي صحيح.");
+          return false;
+        }
+        if (guardianPhone.trim()) {
+          const phoneClean = guardianPhone.trim().replace(/[-\s]/g, "");
+          const phoneRegex = /^(05\d{8}|9705\d{8}|9725\d{8}|\+9705\d{8}|\+9725\d{8})$/;
+          if (!phoneRegex.test(phoneClean)) {
+            setMessage("يرجى إدخال رقم جوال وصي صحيح (مثال: 0599000000).");
+            return false;
+          }
+        }
       }
 
-      if (!address.trim()) {
-        setMessage("يرجى توضيح عنوان ومكان السكن بالتفصيل.");
-        return false;
+      if (!formSettings.transferAccountNumber.hidden) {
+        if (formSettings.transferAccountNumber.required && !transferAccountNumber.trim()) {
+          setMessage("يرجى إدخال رقم الجوال المرتبط بمحفظة أو حساب الاستلام.");
+          return false;
+        }
+        if (transferAccountNumber.trim()) {
+          const transferClean = transferAccountNumber.trim().replace(/[-\s]/g, "");
+          const phoneRegex = /^(05\d{8}|9705\d{8}|9725\d{8}|\+9705\d{8}|\+9725\d{8})$/;
+          if (!phoneRegex.test(transferClean)) {
+            setMessage("يرجى إدخال رقم الجوال الصحيح المرتبط بمحفظة أو حساب الاستلام (مثال: 0599000000).");
+            return false;
+          }
+        }
       }
 
-      const transferClean = transferAccountNumber.trim().replace(/[-\s]/g, "");
-      if (!phoneRegex.test(transferClean)) {
-        setMessage("يرجى إدخال رقم الجوال الصحيح المرتبط بمحفظة أو حساب الاستلام (مثال: 0599000000).");
-        return false;
+      if (!formSettings.sponsorshipStatus.hidden) {
+        if (sponsorshipStatus === "مكفول") {
+          if (!formSettings.sponsorName.hidden) {
+            if (formSettings.sponsorName.required && sponsorName.trim().length < 3) {
+              setMessage("يرجى إدخال اسم الكفيل عند اختيار حالة مكفول.");
+              return false;
+            }
+            if (containsXss(sponsorName)) {
+              setMessage("يحتوي اسم الكفيل على رموز غير آمنة.");
+              return false;
+            }
+          }
+          if (!formSettings.sponsorCountry.hidden) {
+            if (formSettings.sponsorCountry.required && sponsorCountry.trim().length < 2) {
+              setMessage("يرجى إدخال دولة الكفيل عند اختيار حالة مكفول.");
+              return false;
+            }
+          }
+        }
       }
 
-      if (sponsorshipStatus === "مكفول" && sponsorName.trim().length < 3) {
-        setMessage("يرجى إدخال اسم الكفيل عند اختيار حالة مكفول.");
-        return false;
-      }
-
-      if (sponsorshipStatus === "مكفول" && containsXss(sponsorName)) {
-        setMessage("يحتوي اسم الكفيل على رموز غير آمنة.");
-        return false;
-      }
-
-      if (sponsorshipStatus === "مكفول" && sponsorCountry.trim().length < 2) {
-        setMessage("يرجى إدخال دولة الكفيل عند اختيار حالة مكفول.");
-        return false;
+      if (!formSettings.notes.hidden) {
+        if (formSettings.notes.required && !notes.trim()) {
+          setMessage("يرجى كتابة الملاحظات الإضافية.");
+          return false;
+        }
+        if (containsXss(notes)) {
+          setMessage("تحتوي الملاحظات على رموز غير آمنة.");
+          return false;
+        }
       }
     }
 
@@ -264,7 +326,7 @@ export function PublicApplicationForm() {
 
     if (!validateStep(1) || !validateStep(2)) return;
 
-    if (files.length === 0) {
+    if (!formSettings.files.hidden && formSettings.files.required && files.length === 0) {
       setMessage("يرجى رفع المستندات الثبوتية المطلوبة (مثل شهادة الميلاد أو شهادة الوفاة) للمتابعة.");
       return;
     }
@@ -273,25 +335,25 @@ export function PublicApplicationForm() {
       setIsSubmitting(true);
       await createPublicApplication(
         {
-          childFullName: sanitizeInput(childFullName),
-          birthDate,
-          sponsorName: sponsorshipStatus === "مكفول" ? sanitizeInput(sponsorName) : "",
-          sponsorCountry: sponsorshipStatus === "مكفول" ? sanitizeInput(sponsorCountry) : "",
+          childFullName: formSettings.childFullName.hidden ? "" : sanitizeInput(childFullName),
+          birthDate: formSettings.birthDate.hidden ? null : birthDate,
+          sponsorName: (!formSettings.sponsorshipStatus.hidden && sponsorshipStatus === "مكفول" && !formSettings.sponsorName.hidden) ? sanitizeInput(sponsorName) : "",
+          sponsorCountry: (!formSettings.sponsorshipStatus.hidden && sponsorshipStatus === "مكفول" && !formSettings.sponsorCountry.hidden) ? sanitizeInput(sponsorCountry) : "",
           sponsorshipAmount: null,
           sponsorPhone: "",
-          guardianName: sanitizeInput(guardianName),
-          guardianRelation: sanitizeInput(guardianRelation),
-          guardianPhone,
-          orphanType,
-          address: sanitizeInput(address),
-          transferAccountName,
-          transferAccountNumber,
+          guardianName: formSettings.guardianName.hidden ? "" : sanitizeInput(guardianName),
+          guardianRelation: formSettings.guardianRelation.hidden ? "" : sanitizeInput(guardianRelation),
+          guardianPhone: formSettings.guardianPhone.hidden ? "" : guardianPhone,
+          orphanType: formSettings.orphanType.hidden ? "يتيم الأب" : orphanType,
+          address: formSettings.address.hidden ? "" : sanitizeInput(address),
+          transferAccountName: formSettings.transferAccountName.hidden ? "بنك فلسطين" : transferAccountName,
+          transferAccountNumber: formSettings.transferAccountNumber.hidden ? "" : transferAccountNumber,
           documentsStatus: "مرفوعة بانتظار المراجعة",
-          governorateCity,
-          gender,
-          sponsorshipStatus,
+          governorateCity: formSettings.governorateCity.hidden ? "" : governorateCity,
+          gender: formSettings.gender.hidden ? "ذكر" : gender,
+          sponsorshipStatus: formSettings.sponsorshipStatus.hidden ? "غير مكفول" : sponsorshipStatus,
           currency: "شيكل",
-          notes: sanitizeInput(notes),
+          notes: formSettings.notes.hidden ? "" : sanitizeInput(notes),
         },
         files,
         (progress) => setUploadProgress(progress)
@@ -339,6 +401,14 @@ export function PublicApplicationForm() {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
+
+  if (isSettingsLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-blue-500" />
+      </div>
+    );
+  }
 
   return (
     <section className="mx-auto max-w-5xl px-4 py-8 md:py-12">
@@ -467,40 +537,48 @@ export function PublicApplicationForm() {
                   <h3 className="text-lg font-black text-slate-900 border-b border-slate-100 pb-2 mb-2">بيانات اليتيم الأساسية</h3>
 
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div>
-                      <label className="mb-2 block text-xs font-black text-slate-700">اسم الطفل كامل رباعي <span className="text-rose-500">*</span></label>
-                      <input className="glass-input" value={childFullName} onChange={(e) => setChildFullName(e.target.value)} placeholder="مثال: أحمد محمد علي حسن" />
-                    </div>
+                    {!formSettings.childFullName.hidden && (
+                      <div>
+                        <label className="mb-2 block text-xs font-black text-slate-700">اسم الطفل كامل رباعي {formSettings.childFullName.required && <span className="text-rose-500">*</span>}</label>
+                        <input className="glass-input" value={childFullName} onChange={(e) => setChildFullName(e.target.value)} placeholder="مثال: أحمد محمد علي حسن" />
+                      </div>
+                    )}
 
-                    <div>
-                      <label className="mb-2 block text-xs font-black text-slate-700">تاريخ الميلاد <span className="text-rose-500">*</span></label>
-                      <input
-                        className="glass-input"
-                        type="date"
-                        value={birthDate}
-                        min={oldestAllowedBirthDate}
-                        max={todayInputValue}
-                        onChange={(e) => setBirthDate(e.target.value)}
-                      />
-                      <p className="mt-1 text-[10px] font-bold text-slate-400">يُقبل فقط الأطفال بعمر 15 سنة فأقل.</p>
-                    </div>
+                    {!formSettings.birthDate.hidden && (
+                      <div>
+                        <label className="mb-2 block text-xs font-black text-slate-700">تاريخ الميلاد {formSettings.birthDate.required && <span className="text-rose-500">*</span>}</label>
+                        <input
+                          className="glass-input"
+                          type="date"
+                          value={birthDate}
+                          min={oldestAllowedBirthDate}
+                          max={todayInputValue}
+                          onChange={(e) => setBirthDate(e.target.value)}
+                        />
+                        <p className="mt-1 text-[10px] font-bold text-slate-400">يُقبل فقط الأطفال بعمر 15 سنة فأقل.</p>
+                      </div>
+                    )}
 
-                    <div>
-                      <label className="mb-2 block text-xs font-black text-slate-700">الجنس <span className="text-rose-500">*</span></label>
-                      <select className="glass-input" value={gender} onChange={(e) => setGender(e.target.value as Gender)}>
-                        <option>ذكر</option>
-                        <option>أنثى</option>
-                      </select>
-                    </div>
+                    {!formSettings.gender.hidden && (
+                      <div>
+                        <label className="mb-2 block text-xs font-black text-slate-700">الجنس {formSettings.gender.required && <span className="text-rose-500">*</span>}</label>
+                        <select className="glass-input" value={gender} onChange={(e) => setGender(e.target.value as Gender)}>
+                          <option>ذكر</option>
+                          <option>أنثى</option>
+                        </select>
+                      </div>
+                    )}
 
-                    <div>
-                      <label className="mb-2 block text-xs font-black text-slate-700">حالة اليتيم <span className="text-rose-500">*</span></label>
-                      <select className="glass-input" value={orphanType} onChange={(e) => setOrphanType(e.target.value as OrphanType)}>
-                        <option>يتيم الأب</option>
-                        <option>يتيم الأم</option>
-                        <option>يتيم الأبوين</option>
-                      </select>
-                    </div>
+                    {!formSettings.orphanType.hidden && (
+                      <div>
+                        <label className="mb-2 block text-xs font-black text-slate-700">حالة اليتيم {formSettings.orphanType.required && <span className="text-rose-500">*</span>}</label>
+                        <select className="glass-input" value={orphanType} onChange={(e) => setOrphanType(e.target.value as OrphanType)}>
+                          <option>يتيم الأب</option>
+                          <option>يتيم الأم</option>
+                          <option>يتيم الأبوين</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -510,89 +588,113 @@ export function PublicApplicationForm() {
                   <div>
                     <h3 className="text-lg font-black text-slate-900 border-b border-slate-100 pb-2 mb-2">بيانات الوصي والاتصال</h3>
                     <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="mb-2 block text-xs font-black text-slate-700">اسم الوصي بالكامل <span className="text-rose-500">*</span></label>
-                        <input className="glass-input" value={guardianName} onChange={(e) => setGuardianName(e.target.value)} placeholder="الاسم الكامل للوصي القانوني" />
-                      </div>
+                      {!formSettings.guardianName.hidden && (
+                        <div>
+                          <label className="mb-2 block text-xs font-black text-slate-700">اسم الوصي بالكامل {formSettings.guardianName.required && <span className="text-rose-500">*</span>}</label>
+                          <input className="glass-input" value={guardianName} onChange={(e) => setGuardianName(e.target.value)} placeholder="الاسم الكامل للوصي القانوني" />
+                        </div>
+                      )}
 
-                      <div>
-                        <label className="mb-2 block text-xs font-black text-slate-700">صلة قرابة الوصي بالطفل <span className="text-rose-500">*</span></label>
-                        <input className="glass-input" value={guardianRelation} onChange={(e) => setGuardianRelation(e.target.value)} placeholder="مثال: الأم، الجد، العم" />
-                      </div>
+                      {!formSettings.guardianRelation.hidden && (
+                        <div>
+                          <label className="mb-2 block text-xs font-black text-slate-700">صلة قرابة الوصي بالطفل {formSettings.guardianRelation.required && <span className="text-rose-500">*</span>}</label>
+                          <input className="glass-input" value={guardianRelation} onChange={(e) => setGuardianRelation(e.target.value)} placeholder="مثال: الأم، الجد، العم" />
+                        </div>
+                      )}
 
-                      <div>
-                        <label className="mb-2 block text-xs font-black text-slate-700">رقم جوال الوصي للتواصل <span className="text-rose-500">*</span></label>
-                        <input className="glass-input text-left" dir="ltr" type="tel" value={guardianPhone} onChange={(e) => setGuardianPhone(e.target.value)} placeholder="05xxxxxxxx" />
-                      </div>
+                      {!formSettings.guardianPhone.hidden && (
+                        <div>
+                          <label className="mb-2 block text-xs font-black text-slate-700">رقم جوال الوصي للتواصل {formSettings.guardianPhone.required && <span className="text-rose-500">*</span>}</label>
+                          <input className="glass-input text-left" dir="ltr" type="tel" value={guardianPhone} onChange={(e) => setGuardianPhone(e.target.value)} placeholder="05xxxxxxxx" />
+                        </div>
+                      )}
 
-                      <div>
-                        <label className="mb-2 block text-xs font-black text-slate-700">المحافظة / المدينة <span className="text-rose-500">*</span></label>
-                        <select className="glass-input" value={governorateCity} onChange={(e) => setGovernorateCity(e.target.value)}>
-                          {governorates.map((item) => <option key={item}>{item}</option>)}
-                        </select>
-                      </div>
+                      {!formSettings.governorateCity.hidden && (
+                        <div>
+                          <label className="mb-2 block text-xs font-black text-slate-700">المحافظة / المدينة {formSettings.governorateCity.required && <span className="text-rose-500">*</span>}</label>
+                          <select className="glass-input" value={governorateCity} onChange={(e) => setGovernorateCity(e.target.value)}>
+                            {governorates.map((item) => <option key={item}>{item}</option>)}
+                          </select>
+                        </div>
+                      )}
 
-                      <div className="md:col-span-2">
-                        <label className="mb-2 block text-xs font-black text-slate-700">مكان السكن الحالي بالتفصيل <span className="text-rose-500">*</span></label>
-                        <input className="glass-input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="الحي، الشارع، المعالم القريبة" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-3xl border border-blue-100 bg-blue-50/40 p-4">
-                    <h3 className="text-sm font-black text-slate-900 mb-3">بيانات حساب استقبال الكفالة</h3>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="mb-2 block text-xs font-black text-slate-700">طريقة استقبال الكفالة <span className="text-rose-500">*</span></label>
-                        <select className="glass-input" value={transferAccountName} onChange={(e) => setTransferAccountName(e.target.value as TransferAccountOption)}>
-                          {transferAccountOptions.map((option) => <option key={option}>{option}</option>)}
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-xs font-black text-slate-700">رقم الجوال المرتبط بالحساب <span className="text-rose-500">*</span></label>
-                        <input className="glass-input text-left" dir="ltr" type="tel" value={transferAccountNumber} onChange={(e) => setTransferAccountNumber(e.target.value)} placeholder="05xxxxxxxx" />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-3xl border border-emerald-100 bg-emerald-50/40 p-4">
-                    <h3 className="text-sm font-black text-slate-900 mb-3">بيانات حالة الكفالة</h3>
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div>
-                        <label className="mb-2 block text-xs font-black text-slate-700">حالة الكفالة <span className="text-rose-500">*</span></label>
-                        <select className="glass-input" value={sponsorshipStatus} onChange={(e) => handleSponsorshipStatusChange(e.target.value as PublicSponsorshipStatus)}>
-                          <option>غير مكفول</option>
-                          <option>مكفول</option>
-                        </select>
-                      </div>
-
-                      {sponsorshipStatus === "مكفول" && (
-                        <>
-                          <div>
-                            <label className="mb-2 block text-xs font-black text-slate-700">اسم الكفيل <span className="text-rose-500">*</span></label>
-                            <input className="glass-input" value={sponsorName} onChange={(e) => setSponsorName(e.target.value)} placeholder="اسم الكفيل الحالي" />
-                          </div>
-                          <div>
-                            <label className="mb-2 block text-xs font-black text-slate-700">دولة الكفيل <span className="text-rose-500">*</span></label>
-                            <input className="glass-input" value={sponsorCountry} onChange={(e) => setSponsorCountry(e.target.value)} placeholder="دولة إقامة الكفيل" />
-                          </div>
-                        </>
+                      {!formSettings.address.hidden && (
+                        <div className="md:col-span-2">
+                          <label className="mb-2 block text-xs font-black text-slate-700">مكان السكن الحالي بالتفصيل {formSettings.address.required && <span className="text-rose-500">*</span>}</label>
+                          <input className="glass-input" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="الحي، الشارع، المعالم القريبة" />
+                        </div>
                       )}
                     </div>
                   </div>
 
-                  <div>
-                    <label className="mb-2 block text-xs font-black text-slate-700">ملاحظات إضافية</label>
-                    <textarea
-                      className="glass-input min-h-28 resize-y"
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      maxLength={1000}
-                      placeholder="اكتب أي ملاحظات مهمة عن الحالة أو طريقة التواصل أو ظروف الأسرة"
-                    />
-                    <p className="mt-1 text-[10px] font-bold text-slate-400">اختياري — الحد الأقصى 1000 حرف.</p>
-                  </div>
+                  {(!formSettings.transferAccountName.hidden || !formSettings.transferAccountNumber.hidden) && (
+                    <div className="rounded-3xl border border-blue-100 bg-blue-50/40 p-4">
+                      <h3 className="text-sm font-black text-slate-900 mb-3">بيانات حساب استقبال الكفالة</h3>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {!formSettings.transferAccountName.hidden && (
+                          <div>
+                            <label className="mb-2 block text-xs font-black text-slate-700">طريقة استقبال الكفالة {formSettings.transferAccountName.required && <span className="text-rose-500">*</span>}</label>
+                            <select className="glass-input" value={transferAccountName} onChange={(e) => setTransferAccountName(e.target.value as TransferAccountOption)}>
+                              {transferAccountOptions.map((option) => <option key={option}>{option}</option>)}
+                            </select>
+                          </div>
+                        )}
+
+                        {!formSettings.transferAccountNumber.hidden && (
+                          <div>
+                            <label className="mb-2 block text-xs font-black text-slate-700">رقم الجوال المرتبط بالحساب {formSettings.transferAccountNumber.required && <span className="text-rose-500">*</span>}</label>
+                            <input className="glass-input text-left" dir="ltr" type="tel" value={transferAccountNumber} onChange={(e) => setTransferAccountNumber(e.target.value)} placeholder="05xxxxxxxx" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {(!formSettings.sponsorshipStatus.hidden) && (
+                    <div className="rounded-3xl border border-emerald-100 bg-emerald-50/40 p-4">
+                      <h3 className="text-sm font-black text-slate-900 mb-3">بيانات حالة الكفالة</h3>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                          <label className="mb-2 block text-xs font-black text-slate-700">حالة الكفالة {formSettings.sponsorshipStatus.required && <span className="text-rose-500">*</span>}</label>
+                          <select className="glass-input" value={sponsorshipStatus} onChange={(e) => handleSponsorshipStatusChange(e.target.value as PublicSponsorshipStatus)}>
+                            <option>غير مكفول</option>
+                            <option>مكفول</option>
+                          </select>
+                        </div>
+
+                        {sponsorshipStatus === "مكفول" && (
+                          <>
+                            {!formSettings.sponsorName.hidden && (
+                              <div>
+                                <label className="mb-2 block text-xs font-black text-slate-700">اسم الكفيل {formSettings.sponsorName.required && <span className="text-rose-500">*</span>}</label>
+                                <input className="glass-input" value={sponsorName} onChange={(e) => setSponsorName(e.target.value)} placeholder="اسم الكفيل الحالي" />
+                              </div>
+                            )}
+                            {!formSettings.sponsorCountry.hidden && (
+                              <div>
+                                <label className="mb-2 block text-xs font-black text-slate-700">دولة الكفيل {formSettings.sponsorCountry.required && <span className="text-rose-500">*</span>}</label>
+                                <input className="glass-input" value={sponsorCountry} onChange={(e) => setSponsorCountry(e.target.value)} placeholder="دولة إقامة الكفيل" />
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {!formSettings.notes.hidden && (
+                    <div>
+                      <label className="mb-2 block text-xs font-black text-slate-700">ملاحظات إضافية {formSettings.notes.required && <span className="text-rose-500">*</span>}</label>
+                      <textarea
+                        className="glass-input min-h-28 resize-y"
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        maxLength={1000}
+                        placeholder="اكتب أي ملاحظات مهمة عن الحالة أو طريقة التواصل أو ظروف الأسرة"
+                      />
+                      <p className="mt-1 text-[10px] font-bold text-slate-400">الحد الأقصى 1000 حرف.</p>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -604,22 +706,23 @@ export function PublicApplicationForm() {
                       مراجعة البيانات المدخلة قبل الإرسال
                     </h3>
                     <div className="grid gap-3 p-4 rounded-2xl bg-slate-50 border border-slate-100 text-xs font-bold text-slate-700 md:grid-cols-2">
-                      <div><span className="text-slate-400 font-bold block mb-0.5">اسم الطفل:</span> {childFullName}</div>
-                      <div><span className="text-slate-400 font-bold block mb-0.5">تاريخ الميلاد:</span> {birthDate} ({gender} - {orphanType})</div>
-                      <div><span className="text-slate-400 font-bold block mb-0.5">الوصي والقرابة:</span> {guardianName} ({guardianRelation})</div>
-                      <div><span className="text-slate-400 font-bold block mb-0.5">الهاتف والمدينة:</span> {guardianPhone} ({governorateCity})</div>
-                      <div><span className="text-slate-400 font-bold block mb-0.5">حساب الاستلام:</span> {transferAccountName} — {transferAccountNumber}</div>
-                      <div><span className="text-slate-400 font-bold block mb-0.5">حالة الكفالة:</span> {sponsorshipStatus}{sponsorshipStatus === "مكفول" && sponsorName ? ` — ${sponsorName}` : ""}{sponsorshipStatus === "مكفول" && sponsorCountry ? ` (${sponsorCountry})` : ""}</div>
-                      <div className="md:col-span-2"><span className="text-slate-400 font-bold block mb-0.5">العنوان بالتفصيل:</span> {address}</div>
-                      {notes.trim() && <div className="md:col-span-2"><span className="text-slate-400 font-bold block mb-0.5">الملاحظات:</span> {notes}</div>}
+                      {!formSettings.childFullName.hidden && <div><span className="text-slate-400 font-bold block mb-0.5">اسم الطفل:</span> {childFullName}</div>}
+                      {(!formSettings.birthDate.hidden || !formSettings.gender.hidden || !formSettings.orphanType.hidden) && <div><span className="text-slate-400 font-bold block mb-0.5">تاريخ الميلاد والنوع:</span> {birthDate} ({gender} - {orphanType})</div>}
+                      {(!formSettings.guardianName.hidden || !formSettings.guardianRelation.hidden) && <div><span className="text-slate-400 font-bold block mb-0.5">الوصي والقرابة:</span> {guardianName} ({guardianRelation})</div>}
+                      {(!formSettings.guardianPhone.hidden || !formSettings.governorateCity.hidden) && <div><span className="text-slate-400 font-bold block mb-0.5">الهاتف والمدينة:</span> {guardianPhone} ({governorateCity})</div>}
+                      {(!formSettings.transferAccountName.hidden || !formSettings.transferAccountNumber.hidden) && <div><span className="text-slate-400 font-bold block mb-0.5">حساب الاستلام:</span> {transferAccountName} — {transferAccountNumber}</div>}
+                      {!formSettings.sponsorshipStatus.hidden && <div><span className="text-slate-400 font-bold block mb-0.5">حالة الكفالة:</span> {sponsorshipStatus}{sponsorshipStatus === "مكفول" && sponsorName ? ` — ${sponsorName}` : ""}{sponsorshipStatus === "مكفول" && sponsorCountry ? ` (${sponsorCountry})` : ""}</div>}
+                      {!formSettings.address.hidden && <div className="md:col-span-2"><span className="text-slate-400 font-bold block mb-0.5">العنوان بالتفصيل:</span> {address}</div>}
+                      {!formSettings.notes.hidden && notes.trim() && <div className="md:col-span-2"><span className="text-slate-400 font-bold block mb-0.5">الملاحظات:</span> {notes}</div>}
                     </div>
                   </div>
 
-                  <div>
-                    <h3 className="text-sm font-black text-slate-800 mb-3 flex items-center gap-2">
-                      <FileUp className="h-4 w-4 text-blue-500" />
-                      إرفاق المستندات الثبوتية <span className="text-rose-500">*</span>
-                    </h3>
+                  {!formSettings.files.hidden && (
+                    <div>
+                      <h3 className="text-sm font-black text-slate-800 mb-3 flex items-center gap-2">
+                        <FileUp className="h-4 w-4 text-blue-500" />
+                        إرفاق المستندات الثبوتية {formSettings.files.required && <span className="text-rose-500">*</span>}
+                      </h3>
 
                     <p className="text-xs text-slate-400 font-medium mb-3">
                       يرجى إرفاق شهادة ميلاد الطفل ووفاة الأب/الأبوين أو أي أوراق رسمية داعمة للطلب بصيغة صور أو PDF.
@@ -704,7 +807,8 @@ export function PublicApplicationForm() {
                         </div>
                       </div>
                     )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               )}
 

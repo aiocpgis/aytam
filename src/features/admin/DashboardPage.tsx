@@ -22,6 +22,7 @@ import {
   UserCog,
   Users,
   X,
+  Settings2,
 } from "lucide-react";
 import type { OrphanRecord } from "../../types/orphan.types";
 import { normalizeArabicText } from "../../lib/utils";
@@ -35,6 +36,7 @@ import { DuplicateCheckPanel } from "./DuplicateCheckPanel";
 import { SponsorshipDeliveryPanel } from "../sponsorships/SponsorshipDeliveryPanel";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { UserManagementPage } from "../users/UserManagementPage";
+import { FormSettingsPanel } from "./FormSettingsPanel";
 import { SponsorshipDonutChart } from "../../components/charts/SponsorshipDonutChart";
 import { GovernorateBarChart } from "../../components/charts/GovernorateBarChart";
 import { exportDashboardStatsToPDF } from "../../lib/pdfExport";
@@ -43,7 +45,7 @@ import { usePermissions } from "../../hooks/usePermissions";
 import { PageLoader } from "../../components/ui/PageLoader";
 import * as XLSX from "xlsx";
 
-type DashboardTab = "overview" | "directory" | "sponsorships" | "applications" | "duplicates" | "import" | "users";
+type DashboardTab = "overview" | "directory" | "sponsorships" | "applications" | "duplicates" | "import" | "users" | "form-settings";
 
 type NavButtonProps = {
   tab: DashboardTab;
@@ -103,6 +105,7 @@ export function DashboardPage() {
     if (hasPermission("page.applications.view")) tabs.push("applications");
     if (hasPermission("page.import.view")) tabs.push("import");
     if (hasPermission("page.users.view")) tabs.push("users");
+    if (hasPermission("users.assign_permissions")) tabs.push("form-settings");
     return tabs;
   }, [hasPermission]);
 
@@ -404,6 +407,15 @@ export function DashboardPage() {
                 onClick={() => switchTab("users")}
               />
             )}
+            {allowedTabs.includes("form-settings") && (
+              <NavButton
+                tab="form-settings"
+                activeTab={activeTab}
+                label="إعدادات النموذج"
+                icon={<Settings2 className="h-4 w-4 shrink-0" />}
+                onClick={() => switchTab("form-settings")}
+              />
+            )}
           </nav>
         </aside>
 
@@ -580,6 +592,12 @@ export function DashboardPage() {
           {activeTab === "users" && (
             <div className="animate-in fade-in-50 duration-200">
               <UserManagementPage />
+            </div>
+          )}
+
+          {activeTab === "form-settings" && (
+            <div className="animate-in fade-in-50 duration-200">
+              <FormSettingsPanel />
             </div>
           )}
         </section>
