@@ -336,7 +336,7 @@ export function PublicApplicationForm() {
       await createPublicApplication(
         {
           childFullName: formSettings.childFullName.hidden ? "" : sanitizeInput(childFullName),
-          birthDate: formSettings.birthDate.hidden ? null : birthDate,
+          birthDate: formSettings.birthDate.hidden ? "" : birthDate,
           sponsorName: (!formSettings.sponsorshipStatus.hidden && sponsorshipStatus === "مكفول" && !formSettings.sponsorName.hidden) ? sanitizeInput(sponsorName) : "",
           sponsorCountry: (!formSettings.sponsorshipStatus.hidden && sponsorshipStatus === "مكفول" && !formSettings.sponsorCountry.hidden) ? sanitizeInput(sponsorCountry) : "",
           sponsorshipAmount: null,
