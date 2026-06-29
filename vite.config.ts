@@ -7,9 +7,9 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
-      // "prompt" → يسأل المستخدم قبل التحديث بدلاً من التحديث الصامت في الخلفية
-      // هذا يضمن أن الجوال يحصل على النسخة الجديدة فوراً عند كل نشر
-      registerType: "prompt",
+      // "autoUpdate" → يقوم بتحديث النسخة المخبأة تلقائياً وتفعيلها فوراً
+      // هذا يحل مشكلة عدم ظهور التحديثات الجديدة على الجوال
+      registerType: "autoUpdate",
       base: "/aytam/",
       scope: "/aytam/",
       devOptions: {
